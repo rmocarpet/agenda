@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Financeira</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-hover: #20242f;
+    --border: #2a2e3a;
+    --text: #e4e6eb;
+    --text-muted: #9098a9;
+    --accent: #6c5ce7;
+    --accent-hover: #7d6ef0;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --yellow: #f1c40f;
+    --shadow: rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(160deg, #0f1117 0%, #14161f 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  header p {
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 30px;
+  }
+
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+
+  .summary-card .label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .summary-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+
+  .value.green { color: var(--green); }
+  .value.red { color: var(--red); }
+  .value.yellow { color: var(--yellow); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 18px var(--shadow);
+  }
+
+  .panel.full { grid-column: 1 / -1; }
+
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .panel-header h2 {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .panel-header .count {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--card-hover);
+    padding: 2px 10px;
+    border-radius: 20px;
+  }
+
+  form.add-form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .add-form input {
+    background: var(--card-hover);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .add-form input:focus {
+    border-color: var(--accent);
+  }
+
+  .add-form input[name="name"] { flex: 2; min-width: 120px; }
+  .add-form input[name="value"] { flex: 1; min-width: 80px; }
+  .add-form input[name="day"] { flex: 1; min-width: 70px; }
+  .add-form input[name="date"] { flex: 1; min-width: 130px; }
+
+  .add-form button {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .add-form button:hover { background: var(--accent-hover); }
+  .add-form button:active { transform: scale(0.97); }
+
+  ul.item-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  ul.item-list::-webkit-scrollbar { width: 6px; }
+  ul.item-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  .item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--card-hover);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    transition: opacity 0.2s;
+  }
+
+  .item.done {
+    opacity: 0.5;
+  }
+
+  .item.done .item-name {
+    text-decoration: line-through;
+  }
+
+  .item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .item-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .btn-toggle {
+    border: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+
+  .btn-toggle:hover { filter: brightness(1.15); }
+
+  .btn-toggle.pending {
+    background: rgba(241, 196, 15, 0.15);
+    color: var(--yellow);
+    border: 1px solid rgba(241, 196, 15, 0.4);
+  }
+
+  .btn-toggle.done {
+    background: rgba(46, 204, 113, 0.15);
+    color: var(--green);
+    border: 1px solid rgba(46, 204, 113, 0.4);
+  }
+
+  .btn-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    line-height: 1;
+    transition: color 0.2s, background 0.2s;
+  }
+
+  .btn-delete:hover {
+    color: var(--red);
+    background: rgba(231, 76, 60, 0.1);
+  }
+
+  .empty-msg {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 24px 0;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 30px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>💰 Agenda Financeira</h1>
+    <p>Seus dados são salvos automaticamente neste navegador</p>
+  </header>
+
+  <div class="summary">
+    <div class="summary-card">
+      <div class="label">Contas Fixas (mês)</div>
+      <div class="value red" id="sum-fixas">R$ 0,00</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Pagamentos Únicos</div>
+      <div class="value red" id="sum-unicos">R$ 0,00</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Já Pago</div>
+      <div class="value green" id="sum-pago">R$ 0,00</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Tarefas Pendentes</div>
+      <div class="value yellow" id="sum-tarefas">0</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📌 Contas Fixas Mensais</h2>
+        <span class="count" id="count-fixas">0</span>
+      </div>
+      <form class="add-form" id="form-fixas">
+        <input type="text" name="name" placeholder="Nome (ex: Aluguel)" required>
+        <input type="number" step="0.01" name="value" placeholder="Valor R$" required>
+        <input type="number" min="1" max="31" name="day" placeholder="Dia venc.">
+        <button type="submit">Adicionar</button>
+      </form>
+      <ul class="item-list" id="list-fixas"></ul>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>💳 Pagamentos Únicos</h2>
+        <span class="count" id="count-unicos">0</span>
+      </div>
+      <form class="add-form" id="form-unicos">
+        <input type="text" name="name" placeholder="Nome (ex: Presente)" required>
+        <input type="number" step="0.01" name="value" placeholder="Valor R$" required>
+        <input type="date" name="date">
+        <button type="submit">Adicionar</button>
+      </form>
+      <ul class="item-list" id="list-unicos"></ul>
+    </div>
+
+    <div class="panel full">
+      <div class="panel-header">
+        <h2>✅ Lista de Tarefas</h2>
+        <span class="count" id="count-tarefas">0</span>
+      </div>
+      <form class="add-form" id="form-tarefas">
+        <input type="text" name="name" placeholder="Descreva a tarefa" required style="flex:3;">
+        <button type="submit">Adicionar</button>
+      </form>
+      <ul class="item-list" id="list-tarefas"></ul>
+    </div>
+
+  </div>
+
+  <footer>Feito com 💜 — dados salvos localmente via localStorage</footer>
+</div>
+
+<script>
+  const STORAGE_KEY = 'agenda-financeira-v1';
+
+  function loadData() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try { return JSON.parse(raw); } catch (e) { /* fallthrough */ }
+    }
+    return { fixas: [], unicos: [], tarefas: [] };
+  }
+
+  function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    render();
+  }
+
+  let data = loadData();
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function formatMoney(v) {
+    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+  }
+
+  // ---------- FORM HANDLERS ----------
+  document.getElementById('form-fixas').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const f = e.target;
+    data.fixas.push({
+      id: uid(),
+      name: f.name.value.trim(),
+      value: parseFloat(f.value.value) || 0,
+      day: f.day.value || '',
+      paid: false
+    });
+    f.reset();
+    saveData();
+  });
+
+  document.getElementById('form-unicos').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const f = e.target;
+    data.unicos.push({
+      id: uid(),
+      name: f.name.value.trim(),
+      value: parseFloat(f.value.value) || 0,
+      date: f.date.value || '',
+      paid: false
+    });
+    f.reset();
+    saveData();
+  });
+
+  document.getElementById('form-tarefas').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const f = e.target;
+    data.tarefas.push({
+      id: uid(),
+      name: f.name.value.trim(),
+      done: false
+    });
+    f.reset();
+    saveData();
+  });
+
+  // ---------- ACTIONS ----------
+  function toggleItem(list, id) {
+    const item = data[list].find(i => i.id === id);
+    if (!item) return;
+    if (list === 'tarefas') item.done = !item.done;
+    else item.paid = !item.paid;
+    saveData();
+  }
+
+  function deleteItem(list, id) {
+    data[list] = data[list].filter(i => i.id !== id);
+    saveData();
+  }
+
+  window.toggleItem = toggleItem;
+  window.deleteItem = deleteItem;
+
+  // ---------- RENDER ----------
+  function renderList(listKey, containerId, countId, kind) {
+    const container = document.getElementById(containerId);
+    const items = data[listKey];
+    document.getElementById(countId).textContent = items.length;
+
+    if (items.length === 0) {
+      container.innerHTML = `<li class="empty-msg">Nenhum item ainda</li>`;
+      return;
+    }
+
+    container.innerHTML = items.map(item => {
+      const isDone = kind === 'tarefa' ? item.done : item.paid;
+      let meta = '';
+      if (kind === 'fixa') {
+        meta = `${formatMoney(item.value)}${item.day ? ' · vence dia ' + item.day : ''}`;
+      } else if (kind === 'unico') {
+        meta = `${formatMoney(item.value)}${item.date ? ' · ' + formatDate(item.date) : ''}`;
+      }
+
+      const btnLabel = kind === 'tarefa'
+        ? (isDone ? '✔ Feito' : 'Marcar feito')
+        : (isDone ? '✔ Pago' : 'Marcar pago');
+
+      return `
+        <li class="item ${isDone ? 'done' : ''}">
+          <div class="item-info">
+            <span class="item-name">${escapeHtml(item.name)}</span>
+            ${meta ? `<span class="item-meta">${meta}</span>` : ''}
+          </div>
+          <div class="item-actions">
+            <button class="btn-toggle ${isDone ? 'done' : 'pending'}" onclick="toggleItem('${listKey}','${item.id}')">${btnLabel}</button>
+            <button class="btn-delete" onclick="deleteItem('${listKey}','${item.id}')" title="Excluir">✕</button>
+          </div>
+        </li>
+      `;
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderSummary() {
+    const fixasTotal = data.fixas.reduce((s, i) => s + (i.paid ? 0 : i.value), 0);
+    const unicosTotal = data.unicos.reduce((s, i) => s + (i.paid ? 0 : i.value), 0);
+    const pagoTotal = data.fixas.filter(i => i.paid).reduce((s, i) => s + i.value, 0)
+      + data.unicos.filter(i => i.paid).reduce((s, i) => s + i.value, 0);
+    const pendentes = data.tarefas.filter(t => !t.done).length;
+
+    document.getElementById('sum-fixas').textContent = formatMoney(fixasTotal);
+    document.getElementById('sum-unicos').textContent = formatMoney(unicosTotal);
+    document.getElementById('sum-pago').textContent = formatMoney(pagoTotal);
+    document.getElementById('sum-tarefas').textContent = pendentes;
+  }
+
+  function render() {
+    renderList('fixas', 'list-fixas', 'count-fixas', 'fixa');
+    renderList('unicos', 'list-unicos', 'count-unicos', 'unico');
+    renderList('tarefas', 'list-tarefas', 'count-tarefas', 'tarefa');
+    renderSummary();
+  }
+
+  render();
+</script>
+
+</body>
+</html>
