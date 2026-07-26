@@ -39,10 +39,11 @@
   .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }
   .panel { background: #1a2035; border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .panel.lote { border: 2px solid #3b6bf7; }
   .panel h2 { font-size: 17px; margin: 0 0 12px; display:flex; align-items:center; gap:8px; }
   .badge { margin-left:auto; background:#2a3350; border-radius:10px; padding:2px 10px; font-size:13px; }
   .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  input, select {
+  input, select, textarea {
     background: #232a45;
     border: 1px solid #333d5c;
     color: #e8ecf4;
@@ -51,7 +52,9 @@
     font-size: 14px;
     flex: 1;
     min-width: 90px;
+    font-family: inherit;
   }
+  textarea { width: 100%; min-height: 140px; resize: vertical; }
   button {
     border: none;
     border-radius: 8px;
@@ -62,6 +65,7 @@
   }
   .btn-add { background: #3b6bf7; color: white; }
   .btn-add.green { background: #2ecc71; }
+  .btn-add.big { padding: 12px 20px; font-size: 15px; margin-top: 10px; }
   .btn-pay { background: #3a3520; color: #fbbf24; border: 1px solid #6b5f2a; }
   .btn-edit { background: #2a3350; color: #7c9cf5; border: 1px solid #3d4a75; }
   .btn-del { background: transparent; color: #8b93a7; font-size: 18px; padding: 4px 8px; }
@@ -89,6 +93,23 @@
     font-size: 12px;
     margin-left: 6px;
   }
+  .hint {
+    font-size: 12px;
+    color: #8b93a7;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .hint code {
+    background: #232a45;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  #loteResultado {
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  #loteResultado.ok { color: #4ade80; }
+  #loteResultado.erro { color: #f87171; }
 </style>
 </head>
 <body>
@@ -105,6 +126,20 @@
     <div class="card"><div class="label">Saldo</div><div class="value blue" id="totalSaldo">R$ 0,00</div></div>
     <div class="card"><div class="label">Já Pago</div><div class="value green" id="totalPago">R$ 0,00</div></div>
     <div class="card"><div class="label">Tarefas Pendentes</div><div class="value yellow" id="totalTarefas">0</div></div>
+  </div>
+
+  <div class="panel lote">
+    <h2>⚡ Cadastro em Lote <span class="badge">cole e clique</span></h2>
+    <div class="hint">
+      Cole uma linha para cada item, no formato:<br>
+      <code>tarefa; descrição</code><br>
+      <code>receita; categoria; valor; data(AAAA-MM-DD ou vazio); descrição</code><br>
+      <code>conta fixa; nome; valor; dia</code><br>
+      <code>pagamento unico; nome; valor; data(AAAA-MM-DD ou vazio)</code>
+    </div>
+    <textarea id="loteTexto" placeholder="Cole aqui o bloco de texto..."></textarea>
+    <button class="btn-add big" onclick="processarLote()">Adicionar tudo</button>
+    <div id="loteResultado"></div>
   </div>
 
   <div class="panel">
@@ -184,8 +219,67 @@ function fmt(v) {
   return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-// ---------- RECEITAS ----------
 const receitasCol = collection(db, 'receitas');
+const fixasCol = collection(db, 'contasFixas');
+const unicosCol = collection(db, 'pagamentosUnicos');
+const tarefasCol = collection(db, 'tarefas');
+
+// ---------- CADASTRO EM LOTE ----------
+window.processarLote = async () => {
+  const texto = document.getElementById('loteTexto').value.trim();
+  const resultado = document.getElementById('loteResultado');
+  if (!texto) { resultado.textContent = 'Cole algum texto primeiro.'; resultado.className = 'erro'; return; }
+
+  const linhas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  let sucesso = 0, erros = [];
+
+  for (const linha of linhas) {
+    const partes = linha.split(';').map(p => p.trim());
+    const tipo = (partes[0] || '').toLowerCase();
+    try {
+      if (tipo === 'tarefa') {
+        const desc = partes[1];
+        if (!desc) throw new Error('faltou descrição');
+        await addDoc(tarefasCol, { desc, feita: false, criadoEm: Date.now() });
+      } else if (tipo === 'receita') {
+        const categoria = partes[1] || 'Outro';
+        const valor = parseFloat(partes[2]);
+        const data = partes[3] || null;
+        const nome = partes[4] || categoria;
+        if (isNaN(valor)) throw new Error('valor inválido');
+        await addDoc(receitasCol, { nome, valor, categoria, data, criadoEm: Date.now() });
+      } else if (tipo === 'conta fixa' || tipo === 'contafixa') {
+        const nome = partes[1];
+        const valor = parseFloat(partes[2]);
+        const dia = parseInt(partes[3]) || null;
+        if (!nome || isNaN(valor)) throw new Error('dados inválidos');
+        await addDoc(fixasCol, { nome, valor, dia, pago: false, criadoEm: Date.now() });
+      } else if (tipo === 'pagamento unico' || tipo === 'pagamentounico') {
+        const nome = partes[1];
+        const valor = parseFloat(partes[2]);
+        const data = partes[3] || null;
+        if (!nome || isNaN(valor)) throw new Error('dados inválidos');
+        await addDoc(unicosCol, { nome, valor, data, pago: false, criadoEm: Date.now() });
+      } else {
+        throw new Error('tipo não reconhecido');
+      }
+      sucesso++;
+    } catch (e) {
+      erros.push(`"${linha}" (${e.message})`);
+    }
+  }
+
+  if (erros.length === 0) {
+    resultado.textContent = `✅ ${sucesso} item(ns) adicionado(s) com sucesso!`;
+    resultado.className = 'ok';
+    document.getElementById('loteTexto').value = '';
+  } else {
+    resultado.innerHTML = `✅ ${sucesso} adicionado(s). ⚠️ Erros em: <br>` + erros.join('<br>');
+    resultado.className = 'erro';
+  }
+};
+
+// ---------- RECEITAS ----------
 let receitasCache = [];
 onSnapshot(query(receitasCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaReceitas');
@@ -233,7 +327,6 @@ window.editReceita = async (id, nomeAtual, valorAtual, catAtual, dataAtual) => {
 };
 
 // ---------- CONTAS FIXAS ----------
-const fixasCol = collection(db, 'contasFixas');
 let fixasCache = [];
 onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaFixas');
@@ -282,7 +375,6 @@ window.editFixa = async (id, nomeAtual, valorAtual, diaAtual) => {
 };
 
 // ---------- PAGAMENTOS ÚNICOS ----------
-const unicosCol = collection(db, 'pagamentosUnicos');
 let unicosCache = [];
 onSnapshot(query(unicosCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaUnicos');
@@ -331,7 +423,6 @@ window.editUnico = async (id, nomeAtual, valorAtual, dataAtual) => {
 };
 
 // ---------- TAREFAS ----------
-const tarefasCol = collection(db, 'tarefas');
 onSnapshot(query(tarefasCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaTarefas');
   el.innerHTML = '';
