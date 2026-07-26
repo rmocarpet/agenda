@@ -34,13 +34,15 @@
   .value.orange { color: #ff8a4c; }
   .value.green { color: #4ade80; }
   .value.yellow { color: #fbbf24; }
+  .value.blue { color: #7c9cf5; }
+  .value.red { color: #f87171; }
   .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }
-  .panel { background: #1a2035; border-radius: 14px; padding: 18px; }
+  .panel { background: #1a2035; border-radius: 14px; padding: 18px; margin-bottom: 16px; }
   .panel h2 { font-size: 17px; margin: 0 0 12px; display:flex; align-items:center; gap:8px; }
   .badge { margin-left:auto; background:#2a3350; border-radius:10px; padding:2px 10px; font-size:13px; }
   .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  input {
+  input, select {
     background: #232a45;
     border: 1px solid #333d5c;
     color: #e8ecf4;
@@ -59,6 +61,7 @@
     cursor: pointer;
   }
   .btn-add { background: #3b6bf7; color: white; }
+  .btn-add.green { background: #2ecc71; }
   .btn-pay { background: #3a3520; color: #fbbf24; border: 1px solid #6b5f2a; }
   .btn-edit { background: #2a3350; color: #7c9cf5; border: 1px solid #3d4a75; }
   .btn-del { background: transparent; color: #8b93a7; font-size: 18px; padding: 4px 8px; }
@@ -77,6 +80,15 @@
   .empty { text-align: center; color: #565f7a; padding: 20px 0; }
   .paid { opacity: 0.5; }
   .paid b { text-decoration: line-through; }
+  .tag {
+    display: inline-block;
+    background: #16321f;
+    color: #4ade80;
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-size: 12px;
+    margin-left: 6px;
+  }
 </style>
 </head>
 <body>
@@ -89,8 +101,27 @@
   <div class="cards">
     <div class="card"><div class="label">Contas Fixas (mês)</div><div class="value orange" id="totalFixas">R$ 0,00</div></div>
     <div class="card"><div class="label">Pagamentos Únicos</div><div class="value orange" id="totalUnicos">R$ 0,00</div></div>
+    <div class="card"><div class="label">Receitas (mês)</div><div class="value green" id="totalReceitas">R$ 0,00</div></div>
+    <div class="card"><div class="label">Saldo</div><div class="value blue" id="totalSaldo">R$ 0,00</div></div>
     <div class="card"><div class="label">Já Pago</div><div class="value green" id="totalPago">R$ 0,00</div></div>
     <div class="card"><div class="label">Tarefas Pendentes</div><div class="value yellow" id="totalTarefas">0</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>💵 Receitas <span class="badge" id="countReceitas">0</span></h2>
+    <div class="row">
+      <input id="receitaNome" placeholder="Descrição (ex: Banco de carro Ednaldo)">
+      <input id="receitaValor" type="number" placeholder="Valor R$">
+      <select id="receitaCategoria">
+        <option value="DoorDash">DoorDash</option>
+        <option value="RMO Carpet & Upholstery">RMO Carpet & Upholstery</option>
+        <option value="Gorjeta">Gorjeta</option>
+        <option value="Outro">Outro</option>
+      </select>
+      <input id="receitaData" type="date">
+      <button class="btn-add green" onclick="addReceita()">Adicionar</button>
+    </div>
+    <div id="listaReceitas"></div>
   </div>
 
   <div class="panels">
@@ -153,14 +184,66 @@ function fmt(v) {
   return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
+// ---------- RECEITAS ----------
+const receitasCol = collection(db, 'receitas');
+let receitasCache = [];
+onSnapshot(query(receitasCol, orderBy('criadoEm')), (snap) => {
+  const el = document.getElementById('listaReceitas');
+  el.innerHTML = '';
+  let total = 0;
+  receitasCache = [];
+  if (snap.empty) { el.innerHTML = '<div class="empty">Nenhuma receita ainda</div>'; }
+  snap.forEach(d => {
+    const it = d.data();
+    receitasCache.push(it);
+    total += Number(it.valor || 0);
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="info"><b>${it.nome} <span class="tag">${it.categoria || 'Outro'}</span></b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ''}</span></div>
+      <div class="actions">
+        <button class="btn-edit" onclick="editReceita('${d.id}','${it.nome}',${it.valor},'${it.categoria||''}','${it.data||''}')">✏️</button>
+        <button class="btn-del" onclick="delReceita('${d.id}')">✕</button>
+      </div>`;
+    el.appendChild(div);
+  });
+  document.getElementById('totalReceitas').textContent = fmt(total);
+  document.getElementById('countReceitas').textContent = snap.size;
+  recalcSaldo();
+});
+
+window.addReceita = async () => {
+  const nome = document.getElementById('receitaNome').value.trim();
+  const valor = parseFloat(document.getElementById('receitaValor').value);
+  const categoria = document.getElementById('receitaCategoria').value;
+  const data = document.getElementById('receitaData').value || null;
+  if (!nome || !valor) return alert('Preencha nome e valor');
+  await addDoc(receitasCol, { nome, valor, categoria, data, criadoEm: Date.now() });
+  document.getElementById('receitaNome').value = '';
+  document.getElementById('receitaValor').value = '';
+  document.getElementById('receitaData').value = '';
+};
+window.delReceita = async (id) => { if(confirm('Apagar esta receita?')) deleteDoc(doc(db,'receitas',id)); };
+window.editReceita = async (id, nomeAtual, valorAtual, catAtual, dataAtual) => {
+  const nome = prompt('Descrição:', nomeAtual); if (nome === null) return;
+  const valor = prompt('Valor R$:', valorAtual); if (valor === null) return;
+  const categoria = prompt('Categoria (DoorDash / RMO Carpet & Upholstery / Gorjeta / Outro):', catAtual); if (categoria === null) return;
+  const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
+  await updateDoc(doc(db,'receitas',id), { nome, valor: parseFloat(valor), categoria, data: data || null });
+};
+
+// ---------- CONTAS FIXAS ----------
 const fixasCol = collection(db, 'contasFixas');
+let fixasCache = [];
 onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaFixas');
   el.innerHTML = '';
   let total = 0, count = 0;
+  fixasCache = [];
   if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
   snap.forEach(d => {
     const it = d.data();
+    fixasCache.push(it);
     count++;
     if (!it.pago) total += Number(it.valor || 0);
     const div = document.createElement('div');
@@ -198,14 +281,18 @@ window.editFixa = async (id, nomeAtual, valorAtual, diaAtual) => {
   await updateDoc(doc(db,'contasFixas',id), { nome, valor: parseFloat(valor), dia: parseInt(dia)||null });
 };
 
+// ---------- PAGAMENTOS ÚNICOS ----------
 const unicosCol = collection(db, 'pagamentosUnicos');
+let unicosCache = [];
 onSnapshot(query(unicosCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaUnicos');
   el.innerHTML = '';
   let total = 0, count = 0;
+  unicosCache = [];
   if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
   snap.forEach(d => {
     const it = d.data();
+    unicosCache.push(it);
     count++;
     if (!it.pago) total += Number(it.valor || 0);
     const div = document.createElement('div');
@@ -243,6 +330,7 @@ window.editUnico = async (id, nomeAtual, valorAtual, dataAtual) => {
   await updateDoc(doc(db,'pagamentosUnicos',id), { nome, valor: parseFloat(valor), data: data || null });
 };
 
+// ---------- TAREFAS ----------
 const tarefasCol = collection(db, 'tarefas');
 onSnapshot(query(tarefasCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaTarefas');
@@ -275,14 +363,24 @@ window.addTarefa = async () => {
 window.toggleTarefa = async (id, feita) => updateDoc(doc(db,'tarefas',id), { feita });
 window.delTarefa = async (id) => { if(confirm('Apagar esta tarefa?')) deleteDoc(doc(db,'tarefas',id)); };
 
-let fixasCache = [], unicosCache = [];
-onSnapshot(fixasCol, (snap) => { fixasCache = snap.docs.map(d=>d.data()); recalcPago(); });
-onSnapshot(unicosCol, (snap) => { unicosCache = snap.docs.map(d=>d.data()); recalcPago(); });
+// ---------- TOTAIS ----------
 function recalcPago() {
   let total = 0;
   fixasCache.forEach(i => { if (i.pago) total += Number(i.valor||0); });
   unicosCache.forEach(i => { if (i.pago) total += Number(i.valor||0); });
   document.getElementById('totalPago').textContent = fmt(total);
+  recalcSaldo();
+}
+function recalcSaldo() {
+  let totalReceitas = 0;
+  receitasCache.forEach(i => { totalReceitas += Number(i.valor||0); });
+  let totalPago = 0;
+  fixasCache.forEach(i => { if (i.pago) totalPago += Number(i.valor||0); });
+  unicosCache.forEach(i => { if (i.pago) totalPago += Number(i.valor||0); });
+  const saldo = totalReceitas - totalPago;
+  const saldoEl = document.getElementById('totalSaldo');
+  saldoEl.textContent = fmt(saldo);
+  saldoEl.className = 'value ' + (saldo >= 0 ? 'blue' : 'red');
 }
 </script>
 </body>
