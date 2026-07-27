@@ -69,6 +69,7 @@
   .btn-pay { background: #3a3520; color: #fbbf24; border: 1px solid #6b5f2a; }
   .btn-edit { background: #2a3350; color: #7c9cf5; border: 1px solid #3d4a75; }
   .btn-del { background: transparent; color: #8b93a7; font-size: 18px; padding: 4px 8px; }
+  .btn-nav { background: #2a3350; color: #e8ecf4; padding: 6px 14px; }
   .item {
     background: #232a45;
     border-radius: 10px;
@@ -93,6 +94,10 @@
     font-size: 12px;
     margin-left: 6px;
   }
+  .tag.tipo-tarefa { background: #1e2a4a; color: #7c9cf5; }
+  .tag.tipo-conta { background: #3a2a1a; color: #ff8a4c; }
+  .tag.tipo-pagamento { background: #3a2a1a; color: #ff8a4c; }
+  .tag.tipo-receita { background: #16321f; color: #4ade80; }
   .hint {
     font-size: 12px;
     color: #8b93a7;
@@ -110,6 +115,28 @@
   }
   #loteResultado.ok { color: #4ade80; }
   #loteResultado.erro { color: #f87171; }
+  .mes-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .mes-nav .mes-label {
+    font-size: 17px;
+    font-weight: bold;
+    min-width: 160px;
+    text-align: center;
+  }
+  .dia-badge {
+    background: #3b6bf7;
+    color: white;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 12px;
+    min-width: 24px;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -132,7 +159,7 @@
     <h2>⚡ Cadastro em Lote <span class="badge">cole e clique</span></h2>
     <div class="hint">
       Cole uma linha para cada item, no formato:<br>
-      <code>tarefa; descrição</code><br>
+      <code>tarefa; descrição; data(AAAA-MM-DD ou vazio)</code><br>
       <code>receita; categoria; valor; data(AAAA-MM-DD ou vazio); descrição</code><br>
       <code>conta fixa; nome; valor; dia</code><br>
       <code>pagamento unico; nome; valor; data(AAAA-MM-DD ou vazio)</code>
@@ -187,9 +214,20 @@
     <h2>✅ Lista de Tarefas <span class="badge" id="countTarefas">0</span></h2>
     <div class="row">
       <input id="tarefaDesc" placeholder="Descreva a tarefa">
+      <input id="tarefaData" type="date">
       <button class="btn-add" onclick="addTarefa()">Adicionar</button>
     </div>
     <div id="listaTarefas"></div>
+  </div>
+
+  <div class="panel">
+    <h2>📅 Agenda Mensal</h2>
+    <div class="mes-nav">
+      <button class="btn-nav" onclick="mudarMes(-1)">◀</button>
+      <div class="mes-label" id="mesLabel"></div>
+      <button class="btn-nav" onclick="mudarMes(1)">▶</button>
+    </div>
+    <div id="listaAgendaMes"></div>
   </div>
 </div>
 
@@ -239,8 +277,9 @@ window.processarLote = async () => {
     try {
       if (tipo === 'tarefa') {
         const desc = partes[1];
+        const data = partes[2] || null;
         if (!desc) throw new Error('faltou descrição');
-        await addDoc(tarefasCol, { desc, feita: false, criadoEm: Date.now() });
+        await addDoc(tarefasCol, { desc, data, feita: false, criadoEm: Date.now() });
       } else if (tipo === 'receita') {
         const categoria = partes[1] || 'Outro';
         const valor = parseFloat(partes[2]);
@@ -289,7 +328,7 @@ onSnapshot(query(receitasCol, orderBy('criadoEm')), (snap) => {
   if (snap.empty) { el.innerHTML = '<div class="empty">Nenhuma receita ainda</div>'; }
   snap.forEach(d => {
     const it = d.data();
-    receitasCache.push(it);
+    receitasCache.push({ id: d.id, ...it });
     total += Number(it.valor || 0);
     const div = document.createElement('div');
     div.className = 'item';
@@ -304,6 +343,7 @@ onSnapshot(query(receitasCol, orderBy('criadoEm')), (snap) => {
   document.getElementById('totalReceitas').textContent = fmt(total);
   document.getElementById('countReceitas').textContent = snap.size;
   recalcSaldo();
+  renderAgendaMes();
 });
 
 window.addReceita = async () => {
@@ -336,7 +376,7 @@ onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
   if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
   snap.forEach(d => {
     const it = d.data();
-    fixasCache.push(it);
+    fixasCache.push({ id: d.id, ...it });
     count++;
     if (!it.pago) total += Number(it.valor || 0);
     const div = document.createElement('div');
@@ -353,6 +393,7 @@ onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
   document.getElementById('totalFixas').textContent = fmt(total);
   document.getElementById('countFixas').textContent = count;
   recalcPago();
+  renderAgendaMes();
 });
 
 window.addFixa = async () => {
@@ -384,7 +425,7 @@ onSnapshot(query(unicosCol, orderBy('criadoEm')), (snap) => {
   if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
   snap.forEach(d => {
     const it = d.data();
-    unicosCache.push(it);
+    unicosCache.push({ id: d.id, ...it });
     count++;
     if (!it.pago) total += Number(it.valor || 0);
     const div = document.createElement('div');
@@ -401,6 +442,7 @@ onSnapshot(query(unicosCol, orderBy('criadoEm')), (snap) => {
   document.getElementById('totalUnicos').textContent = fmt(total);
   document.getElementById('countUnicos').textContent = count;
   recalcPago();
+  renderAgendaMes();
 });
 
 window.addUnico = async () => {
@@ -423,19 +465,23 @@ window.editUnico = async (id, nomeAtual, valorAtual, dataAtual) => {
 };
 
 // ---------- TAREFAS ----------
+let tarefasCache = [];
 onSnapshot(query(tarefasCol, orderBy('criadoEm')), (snap) => {
   const el = document.getElementById('listaTarefas');
   el.innerHTML = '';
   let pendentes = 0;
+  tarefasCache = [];
   if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
   snap.forEach(d => {
     const it = d.data();
+    tarefasCache.push({ id: d.id, ...it });
     if (!it.feita) pendentes++;
     const div = document.createElement('div');
     div.className = 'item' + (it.feita ? ' paid' : '');
     div.innerHTML = `
-      <div class="info"><b>${it.desc}</b></div>
+      <div class="info"><b>${it.desc}</b>${it.data ? '<span>' + it.data.split('-').reverse().join('/') + '</span>' : ''}</div>
       <div class="actions">
+        <button class="btn-edit" onclick="editTarefa('${d.id}','${it.desc}','${it.data||''}')">✏️</button>
         <button class="btn-pay" onclick="toggleTarefa('${d.id}', ${!it.feita})">${it.feita ? 'Reabrir' : 'Concluir'}</button>
         <button class="btn-del" onclick="delTarefa('${d.id}')">✕</button>
       </div>`;
@@ -443,16 +489,24 @@ onSnapshot(query(tarefasCol, orderBy('criadoEm')), (snap) => {
   });
   document.getElementById('countTarefas').textContent = snap.size;
   document.getElementById('totalTarefas').textContent = pendentes;
+  renderAgendaMes();
 });
 
 window.addTarefa = async () => {
   const desc = document.getElementById('tarefaDesc').value.trim();
+  const data = document.getElementById('tarefaData').value || null;
   if (!desc) return;
-  await addDoc(tarefasCol, { desc, feita: false, criadoEm: Date.now() });
+  await addDoc(tarefasCol, { desc, data, feita: false, criadoEm: Date.now() });
   document.getElementById('tarefaDesc').value = '';
+  document.getElementById('tarefaData').value = '';
 };
 window.toggleTarefa = async (id, feita) => updateDoc(doc(db,'tarefas',id), { feita });
 window.delTarefa = async (id) => { if(confirm('Apagar esta tarefa?')) deleteDoc(doc(db,'tarefas',id)); };
+window.editTarefa = async (id, descAtual, dataAtual) => {
+  const desc = prompt('Descrição da tarefa:', descAtual); if (desc === null) return;
+  const data = prompt('Data (AAAA-MM-DD, deixe vazio se não tiver):', dataAtual); if (data === null) return;
+  await updateDoc(doc(db,'tarefas',id), { desc, data: data || null });
+};
 
 // ---------- TOTAIS ----------
 function recalcPago() {
@@ -473,6 +527,70 @@ function recalcSaldo() {
   saldoEl.textContent = fmt(saldo);
   saldoEl.className = 'value ' + (saldo >= 0 ? 'blue' : 'red');
 }
+
+// ---------- AGENDA MENSAL ----------
+const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const hoje = new Date();
+let mesAtual = hoje.getMonth();
+let anoAtual = hoje.getFullYear();
+
+window.mudarMes = (delta) => {
+  mesAtual += delta;
+  if (mesAtual < 0) { mesAtual = 11; anoAtual--; }
+  if (mesAtual > 11) { mesAtual = 0; anoAtual++; }
+  renderAgendaMes();
+};
+
+function renderAgendaMes() {
+  const label = document.getElementById('mesLabel');
+  if (!label) return;
+  label.textContent = nomesMeses[mesAtual] + ' / ' + anoAtual;
+
+  const prefixoMes = anoAtual + '-' + String(mesAtual + 1).padStart(2, '0');
+  const itens = [];
+
+  fixasCache.forEach(it => {
+    if (it.dia) itens.push({ dia: it.dia, tipo: 'Conta Fixa', desc: it.nome + ' — ' + fmt(it.valor), classe: 'tipo-conta' });
+  });
+  unicosCache.forEach(it => {
+    if (it.data && it.data.startsWith(prefixoMes)) {
+      const dia = parseInt(it.data.split('-')[2]);
+      itens.push({ dia, tipo: 'Pagamento', desc: it.nome + ' — ' + fmt(it.valor), classe: 'tipo-pagamento' });
+    }
+  });
+  receitasCache.forEach(it => {
+    if (it.data && it.data.startsWith(prefixoMes)) {
+      const dia = parseInt(it.data.split('-')[2]);
+      itens.push({ dia, tipo: 'Receita', desc: it.nome + ' — ' + fmt(it.valor), classe: 'tipo-receita' });
+    }
+  });
+  tarefasCache.forEach(it => {
+    if (it.data && it.data.startsWith(prefixoMes)) {
+      const dia = parseInt(it.data.split('-')[2]);
+      itens.push({ dia, tipo: 'Tarefa', desc: it.desc, classe: 'tipo-tarefa' });
+    }
+  });
+
+  itens.sort((a, b) => a.dia - b.dia);
+
+  const el = document.getElementById('listaAgendaMes');
+  el.innerHTML = '';
+  if (itens.length === 0) {
+    el.innerHTML = '<div class="empty">Nada agendado para esse mês</div>';
+    return;
+  }
+  itens.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="info" style="display:flex; align-items:center; gap:10px;">
+        <span class="dia-badge">${String(it.dia).padStart(2,'0')}</span>
+        <b>${it.desc} <span class="tag ${it.classe}">${it.tipo}</span></b>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+renderAgendaMes();
 </script>
 </body>
 </html>
