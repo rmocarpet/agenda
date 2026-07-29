@@ -66,11 +66,13 @@
   .btn-toggle { background: #2a3350; color: #7c9cf5; width: 100%; margin-top: 8px; }
   .item {
     background: #232a45; border-radius: 10px; padding: 12px 14px;
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 10px; margin-bottom: 8px; flex-wrap: wrap;
   }
+  .item .info { flex: 1; min-width: 160px; }
   .item .info b { display:block; font-size:15px; }
   .item .info span { font-size: 13px; color: #8b93a7; }
-  .item .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .item .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
   .empty { text-align: center; color: #565f7a; padding: 20px 0; }
   .paid { opacity: 0.5; }
   .paid b { text-decoration: line-through; }
@@ -92,6 +94,7 @@
   .cal-day.hoje .num { color: #3b6bf7; }
   .cal-day .evento { background: #2a3350; border-radius: 4px; padding: 1px 4px; margin-bottom: 2px; font-size: 10px; line-height: 1.3; color: #e8ecf4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cal-day.rmo .evento { background: #16321f; color: #4ade80; }
+  .cal-day .evento.feita { opacity: 0.5; text-decoration: line-through; }
   .cal-day .mais { font-size: 10px; color: #8b93a7; }
   .modal-fundo { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,.6); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
   .modal-fundo.aberto { display: flex; }
@@ -108,12 +111,12 @@
   </header>
 
   <div class="cards">
-    <div class="card"><div class="label">Contas Fixas (mês)</div><div class="value orange" id="totalFixas">R$ 0,00</div></div>
-    <div class="card"><div class="label">Pagamentos Únicos</div><div class="value orange" id="totalUnicos">R$ 0,00</div></div>
-    <div class="card"><div class="label">Despesas Dia a Dia</div><div class="value red" id="totalDespesas">R$ 0,00</div></div>
-    <div class="card"><div class="label">Receitas (mês)</div><div class="value green" id="totalReceitas">R$ 0,00</div></div>
-    <div class="card"><div class="label">Saldo</div><div class="value blue" id="totalSaldo">R$ 0,00</div></div>
-    <div class="card"><div class="label">Já Pago</div><div class="value green" id="totalPago">R$ 0,00</div></div>
+    <div class="card"><div class="label">Contas Fixas (mês)</div><div class="value orange" id="totalFixas">$0.00</div></div>
+    <div class="card"><div class="label">Pagamentos Únicos</div><div class="value orange" id="totalUnicos">$0.00</div></div>
+    <div class="card"><div class="label">Despesas Dia a Dia</div><div class="value red" id="totalDespesas">$0.00</div></div>
+    <div class="card"><div class="label">Receitas (mês)</div><div class="value green" id="totalReceitas">$0.00</div></div>
+    <div class="card"><div class="label">Saldo</div><div class="value blue" id="totalSaldo">$0.00</div></div>
+    <div class="card"><div class="label">Já Pago</div><div class="value green" id="totalPago">$0.00</div></div>
     <div class="card"><div class="label">Tarefas Pendentes</div><div class="value yellow" id="totalTarefas">0</div></div>
   </div>
 
@@ -147,8 +150,8 @@
     <div class="row">
       <input id="receitaNome" placeholder="Descrição (ex: Banco de carro Ednaldo)">
       <button class="btn-mic" type="button" onclick="ditar('receitaNome', this)">🎤</button>
-      <input id="receitaValor" type="number" placeholder="Valor R$">
-      <input id="receitaGorjeta" type="number" placeholder="Gorjeta R$ (opcional)">
+      <input id="receitaValor" type="number" placeholder="Valor $">
+      <input id="receitaGorjeta" type="number" placeholder="Gorjeta $ (opcional)">
       <select id="receitaCategoria">
         <option value="DoorDash">DoorDash</option>
         <option value="RMO Carpet & Upholstery">RMO Carpet & Upholstery</option>
@@ -166,7 +169,7 @@
     <div class="row">
       <input id="despesaLocal" placeholder="Local (ex: Supermercado)">
       <button class="btn-mic" type="button" onclick="ditar('despesaLocal', this)">🎤</button>
-      <input id="despesaValor" type="number" placeholder="Valor R$">
+      <input id="despesaValor" type="number" placeholder="Valor $">
       <select id="despesaCategoria">
         <option value="Supermercado">Supermercado</option>
         <option value="Combustível">Combustível</option>
@@ -186,7 +189,7 @@
       <div class="row">
         <input id="fixaNome" placeholder="Nome (ex: Aluguel)">
         <button class="btn-mic" type="button" onclick="ditar('fixaNome', this)">🎤</button>
-        <input id="fixaValor" type="number" placeholder="Valor R$">
+        <input id="fixaValor" type="number" placeholder="Valor $">
         <input id="fixaDia" type="number" placeholder="Dia venc.">
         <button class="btn-add" onclick="addFixa()">Adicionar</button>
       </div>
@@ -198,7 +201,7 @@
       <div class="row">
         <input id="unicoNome" placeholder="Nome (ex: Presente)">
         <button class="btn-mic" type="button" onclick="ditar('unicoNome', this)">🎤</button>
-        <input id="unicoValor" type="number" placeholder="Valor R$">
+        <input id="unicoValor" type="number" placeholder="Valor $">
         <input id="unicoData" type="date">
         <button class="btn-add" onclick="addUnico()">Adicionar</button>
       </div>
@@ -275,7 +278,7 @@ document.getElementById('statusText').textContent = '☁️ Seus dados são sinc
 document.getElementById('statusText').classList.add('synced');
 
 function fmt(v) {
-  return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  return '$' + Number(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function diasAtras(dataStr, criadoEm) {
   const base = dataStr ? new Date(dataStr + 'T12:00:00') : new Date(criadoEm);
@@ -288,20 +291,44 @@ const unicosCol = collection(db, 'pagamentosUnicos');
 const tarefasCol = collection(db, 'tarefas');
 const despesasCol = collection(db, 'despesas');
 
-// ---------- MICROFONE (Web Speech API) ----------
+// ---------- MICROFONE CONTÍNUO ----------
+const recognitions = {};
 window.ditar = (campoId, botao) => {
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) { alert('Reconhecimento de voz não suportado neste navegador.'); return; }
+
+  if (recognitions[campoId] && recognitions[campoId].ativo) {
+    recognitions[campoId].rec.stop();
+    return;
+  }
+
   const rec = new SpeechRec();
   rec.lang = 'pt-BR';
-  rec.interimResults = false;
+  rec.continuous = true;
+  rec.interimResults = true;
+  let textoFinal = document.getElementById(campoId).value ? document.getElementById(campoId).value + ' ' : '';
+  recognitions[campoId] = { rec, ativo: true };
   botao.classList.add('gravando');
-  botao.textContent = '🔴';
+  botao.textContent = '⏹️';
+
   rec.onresult = (e) => {
-    document.getElementById(campoId).value = e.results[0][0].transcript;
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) textoFinal += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById(campoId).value = (textoFinal + interim).trim();
   };
-  rec.onend = () => { botao.classList.remove('gravando'); botao.textContent = '🎤'; };
-  rec.onerror = () => { botao.classList.remove('gravando'); botao.textContent = '🎤'; };
+  rec.onend = () => {
+    botao.classList.remove('gravando');
+    botao.textContent = '🎤';
+    if (recognitions[campoId]) recognitions[campoId].ativo = false;
+  };
+  rec.onerror = () => {
+    botao.classList.remove('gravando');
+    botao.textContent = '🎤';
+    if (recognitions[campoId]) recognitions[campoId].ativo = false;
+  };
   rec.start();
 };
 
@@ -380,11 +407,18 @@ onSnapshot(query(receitasCol, orderBy('criadoEm')), (snap) => {
   snap.forEach(d => receitasCache.push({ id: d.id, ...d.data() }));
   renderReceitas();
   recalcSaldo();
+  renderCalendarios();
 });
 
+function ordemDataDesc(a, b) {
+  const da = a.data ? new Date(a.data + 'T12:00:00').getTime() : a.criadoEm;
+  const db_ = b.data ? new Date(b.data + 'T12:00:00').getTime() : b.criadoEm;
+  return db_ - da;
+}
+
 function renderReceitas() {
-  const recentes = receitasCache.filter(it => diasAtras(it.data, it.criadoEm) <= 30).sort((a,b)=>b.criadoEm-a.criadoEm);
-  const antigas = receitasCache.filter(it => diasAtras(it.data, it.criadoEm) > 30).sort((a,b)=>b.criadoEm-a.criadoEm);
+  const recentes = receitasCache.filter(it => diasAtras(it.data, it.criadoEm) <= 30).sort(ordemDataDesc);
+  const antigas = receitasCache.filter(it => diasAtras(it.data, it.criadoEm) > 30).sort(ordemDataDesc);
 
   let total = 0;
   receitasCache.forEach(it => total += Number(it.valor||0) + Number(it.gorjeta||0));
@@ -448,10 +482,10 @@ window.addReceita = async () => {
 window.delReceita = async (id) => { if(confirm('Apagar esta receita?')) deleteDoc(doc(db,'receitas',id)); };
 window.editReceita = async (id, nomeAtual, valorAtual, catAtual, dataAtual, gorjetaAtual) => {
   const nome = prompt('Descrição:', nomeAtual); if (nome === null) return;
-  const valor = prompt('Valor R$:', valorAtual); if (valor === null) return;
+  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
   const categoria = prompt('Categoria (DoorDash / RMO Carpet & Upholstery / Outro):', catAtual); if (categoria === null) return;
   const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
-  const gorjeta = prompt('Gorjeta R$ (0 se não teve):', gorjetaAtual); if (gorjeta === null) return;
+  const gorjeta = prompt('Gorjeta $ (0 se não teve):', gorjetaAtual); if (gorjeta === null) return;
   await updateDoc(doc(db,'receitas',id), { nome, valor: parseFloat(valor), categoria, data: data || null, gorjeta: parseFloat(gorjeta)||0 });
 };
 
@@ -496,7 +530,7 @@ window.addDespesa = async () => {
 window.delDespesa = async (id) => { if(confirm('Apagar esta despesa?')) deleteDoc(doc(db,'despesas',id)); };
 window.editDespesa = async (id, localAtual, valorAtual, catAtual, dataAtual) => {
   const local = prompt('Local:', localAtual); if (local === null) return;
-  const valor = prompt('Valor R$:', valorAtual); if (valor === null) return;
+  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
   const categoria = prompt('Categoria (Supermercado / Combustível / Alimentação / Manutenção do Carro / Outro):', catAtual); if (categoria === null) return;
   const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
   await updateDoc(doc(db,'despesas',id), { local, valor: parseFloat(valor), categoria, data: data || null });
@@ -504,32 +538,47 @@ window.editDespesa = async (id, localAtual, valorAtual, catAtual, dataAtual) => 
 
 // ---------- CONTAS FIXAS ----------
 let fixasCache = [];
+let fixasExpandido = false;
 onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
-  const el = document.getElementById('listaFixas');
-  el.innerHTML = '';
-  let total = 0, count = 0;
   fixasCache = [];
-  if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
-  snap.forEach(d => {
-    const it = d.data();
-    fixasCache.push({ id: d.id, ...it });
-    count++;
-    if (!it.pago) total += Number(it.valor || 0);
-    const div = document.createElement('div');
-    div.className = 'item' + (it.pago ? ' paid' : '');
-    div.innerHTML = `
-      <div class="info"><b>${it.nome}</b><span>${fmt(it.valor)} · vence dia ${it.dia || '-'}</span></div>
-      <div class="actions">
-        <button class="btn-edit" onclick="editFixa('${d.id}','${it.nome}',${it.valor},${it.dia||0})">✏️</button>
-        <button class="btn-pay" onclick="togglePagoFixa('${d.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
-        <button class="btn-del" onclick="delFixa('${d.id}')">✕</button>
-      </div>`;
-    el.appendChild(div);
-  });
-  document.getElementById('totalFixas').textContent = fmt(total);
-  document.getElementById('countFixas').textContent = count;
+  snap.forEach(d => fixasCache.push({ id: d.id, ...d.data() }));
+  renderFixas();
   recalcPago();
 });
+
+function renderFixas() {
+  const ordenadas = [...fixasCache].sort((a,b) => (a.dia||99) - (b.dia||99));
+  let total = 0;
+  fixasCache.forEach(it => { if (!it.pago) total += Number(it.valor||0); });
+  document.getElementById('totalFixas').textContent = fmt(total);
+  document.getElementById('countFixas').textContent = fixasCache.length;
+
+  const el = document.getElementById('listaFixas');
+  el.innerHTML = '';
+  if (ordenadas.length === 0) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
+  const mostrar = fixasExpandido ? ordenadas : ordenadas.slice(0,5);
+  mostrar.forEach(it => el.appendChild(criarItemFixa(it)));
+  if (ordenadas.length > 5) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-toggle';
+    btn.textContent = fixasExpandido ? '▲ Ver menos' : `▼ Ver mais (${ordenadas.length - 5})`;
+    btn.onclick = () => { fixasExpandido = !fixasExpandido; renderFixas(); };
+    el.appendChild(btn);
+  }
+}
+
+function criarItemFixa(it) {
+  const div = document.createElement('div');
+  div.className = 'item' + (it.pago ? ' paid' : '');
+  div.innerHTML = `
+    <div class="info"><b>${it.nome}</b><span>${fmt(it.valor)} · vence dia ${it.dia || '-'}</span></div>
+    <div class="actions">
+      <button class="btn-edit" onclick="editFixa('${it.id}','${it.nome}',${it.valor},${it.dia||0})">✏️</button>
+      <button class="btn-pay" onclick="togglePagoFixa('${it.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
+      <button class="btn-del" onclick="delFixa('${it.id}')">✕</button>
+    </div>`;
+  return div;
+}
 
 window.addFixa = async () => {
   const nome = document.getElementById('fixaNome').value.trim();
@@ -545,39 +594,58 @@ window.togglePagoFixa = async (id, pago) => updateDoc(doc(db,'contasFixas',id), 
 window.delFixa = async (id) => { if(confirm('Apagar este item?')) deleteDoc(doc(db,'contasFixas',id)); };
 window.editFixa = async (id, nomeAtual, valorAtual, diaAtual) => {
   const nome = prompt('Nome:', nomeAtual); if (nome === null) return;
-  const valor = prompt('Valor R$:', valorAtual); if (valor === null) return;
+  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
   const dia = prompt('Dia de vencimento:', diaAtual); if (dia === null) return;
   await updateDoc(doc(db,'contasFixas',id), { nome, valor: parseFloat(valor), dia: parseInt(dia)||null });
 };
 
 // ---------- PAGAMENTOS ÚNICOS ----------
 let unicosCache = [];
+let unicosExpandido = false;
 onSnapshot(query(unicosCol, orderBy('criadoEm')), (snap) => {
-  const el = document.getElementById('listaUnicos');
-  el.innerHTML = '';
-  let total = 0, count = 0;
   unicosCache = [];
-  if (snap.empty) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
-  snap.forEach(d => {
-    const it = d.data();
-    unicosCache.push({ id: d.id, ...it });
-    count++;
-    if (!it.pago) total += Number(it.valor || 0);
-    const div = document.createElement('div');
-    div.className = 'item' + (it.pago ? ' paid' : '');
-    div.innerHTML = `
-      <div class="info"><b>${it.nome}</b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ' · sem data'}</span></div>
-      <div class="actions">
-        <button class="btn-edit" onclick="editUnico('${d.id}','${it.nome}',${it.valor},'${it.data||''}')">✏️</button>
-        <button class="btn-pay" onclick="togglePagoUnico('${d.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
-        <button class="btn-del" onclick="delUnico('${d.id}')">✕</button>
-      </div>`;
-    el.appendChild(div);
-  });
-  document.getElementById('totalUnicos').textContent = fmt(total);
-  document.getElementById('countUnicos').textContent = count;
+  snap.forEach(d => unicosCache.push({ id: d.id, ...d.data() }));
+  renderUnicos();
   recalcPago();
 });
+
+function renderUnicos() {
+  const ordenados = [...unicosCache].sort((a,b) => {
+    const da = a.data ? new Date(a.data + 'T12:00:00').getTime() : Infinity;
+    const db_ = b.data ? new Date(b.data + 'T12:00:00').getTime() : Infinity;
+    return da - db_;
+  });
+  let total = 0;
+  unicosCache.forEach(it => { if (!it.pago) total += Number(it.valor||0); });
+  document.getElementById('totalUnicos').textContent = fmt(total);
+  document.getElementById('countUnicos').textContent = unicosCache.length;
+
+  const el = document.getElementById('listaUnicos');
+  el.innerHTML = '';
+  if (ordenados.length === 0) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
+  const mostrar = unicosExpandido ? ordenados : ordenados.slice(0,5);
+  mostrar.forEach(it => el.appendChild(criarItemUnico(it)));
+  if (ordenados.length > 5) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-toggle';
+    btn.textContent = unicosExpandido ? '▲ Ver menos' : `▼ Ver mais (${ordenados.length - 5})`;
+    btn.onclick = () => { unicosExpandido = !unicosExpandido; renderUnicos(); };
+    el.appendChild(btn);
+  }
+}
+
+function criarItemUnico(it) {
+  const div = document.createElement('div');
+  div.className = 'item' + (it.pago ? ' paid' : '');
+  div.innerHTML = `
+    <div class="info"><b>${it.nome}</b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ' · sem data'}</span></div>
+    <div class="actions">
+      <button class="btn-edit" onclick="editUnico('${it.id}','${it.nome}',${it.valor},'${it.data||''}')">✏️</button>
+      <button class="btn-pay" onclick="togglePagoUnico('${it.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
+      <button class="btn-del" onclick="delUnico('${it.id}')">✕</button>
+    </div>`;
+  return div;
+}
 
 window.addUnico = async () => {
   const nome = document.getElementById('unicoNome').value.trim();
@@ -593,7 +661,7 @@ window.togglePagoUnico = async (id, pago) => updateDoc(doc(db,'pagamentosUnicos'
 window.delUnico = async (id) => { if(confirm('Apagar este item?')) deleteDoc(doc(db,'pagamentosUnicos',id)); };
 window.editUnico = async (id, nomeAtual, valorAtual, dataAtual) => {
   const nome = prompt('Nome:', nomeAtual); if (nome === null) return;
-  const valor = prompt('Valor R$:', valorAtual); if (valor === null) return;
+  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
   const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
   await updateDoc(doc(db,'pagamentosUnicos',id), { nome, valor: parseFloat(valor), data: data || null });
 };
@@ -783,16 +851,28 @@ function construirGrade(containerId, labelId, qual) {
 
   const prefixoMes = e.ano + '-' + String(e.mes + 1).padStart(2, '0');
   const eventosPorDia = {};
+
+  function addEvento(dia, desc, feita) {
+    if (!eventosPorDia[dia]) eventosPorDia[dia] = [];
+    eventosPorDia[dia].push({ desc, feita: !!feita });
+  }
+
   tarefasCache.forEach(it => {
     if (!it.data || !it.data.startsWith(prefixoMes)) return;
     const dia = parseInt(it.data.split('-')[2]);
     const pertenceGeral = qual === 'geral' && (it.tipo === 'geral' || it.tipo === 'rmoadmin' || !it.tipo);
     const pertenceRmo = qual === 'rmo' && it.tipo === 'rmoservico';
-    if (pertenceGeral || pertenceRmo) {
-      if (!eventosPorDia[dia]) eventosPorDia[dia] = [];
-      eventosPorDia[dia].push(it.desc);
-    }
+    if (pertenceGeral || pertenceRmo) addEvento(dia, it.desc, it.feita);
   });
+
+  if (qual === 'rmo') {
+    receitasCache.forEach(it => {
+      if (it.categoria === 'RMO Carpet & Upholstery' && it.data && it.data.startsWith(prefixoMes)) {
+        const dia = parseInt(it.data.split('-')[2]);
+        addEvento(dia, it.nome, true);
+      }
+    });
+  }
 
   const primeiroDiaSemana = new Date(e.ano, e.mes, 1).getDay();
   const totalDias = new Date(e.ano, e.mes + 1, 0).getDate();
@@ -818,7 +898,7 @@ function construirGrade(containerId, labelId, qual) {
     const eventos = eventosPorDia[dia];
     if (eventos) {
       const mostrar = eventos.slice(0, 2);
-      mostrar.forEach(desc => { html += `<div class="evento">${desc}</div>`; });
+      mostrar.forEach(ev => { html += `<div class="evento${ev.feita ? ' feita' : ''}">${ev.desc}</div>`; });
       if (eventos.length > 2) html += `<div class="mais">+${eventos.length - 2}</div>`;
       div.onclick = () => abrirModalDia(dia, e.mes, e.ano, eventos);
     }
@@ -831,10 +911,10 @@ window.abrirModalDia = (dia, mes, ano, eventos) => {
   document.getElementById('modalTitulo').textContent = `${String(dia).padStart(2,'0')} de ${nomesMeses[mes]} / ${ano}`;
   const conteudo = document.getElementById('modalConteudo');
   conteudo.innerHTML = '';
-  eventos.forEach(desc => {
+  eventos.forEach(ev => {
     const div = document.createElement('div');
     div.className = 'item';
-    div.innerHTML = `<div class="info"><b>${desc}</b></div>`;
+    div.innerHTML = `<div class="info"><b${ev.feita ? ' style="text-decoration:line-through;opacity:0.6;"' : ''}>${ev.desc}</b></div>`;
     conteudo.appendChild(div);
   });
   document.getElementById('modalDia').classList.add('aberto');
