@@ -62,6 +62,7 @@
   .btn-mic { background: #2a3350; color: #f87171; border: 1px solid #3d4a75; padding: 8px 10px; }
   .btn-mic.gravando { background: #f87171; color: white; }
   .btn-del { background: transparent; color: #8b93a7; font-size: 18px; padding: 4px 8px; }
+  .btn-clear { background: #2a3350; color: #f87171; border: 1px solid #3d4a75; }
   .btn-nav { background: #2a3350; color: #e8ecf4; padding: 6px 14px; }
   .btn-toggle { background: #2a3350; color: #7c9cf5; width: 100%; margin-top: 8px; }
   .item {
@@ -69,6 +70,8 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     gap: 10px; margin-bottom: 8px; flex-wrap: wrap;
   }
+  .item.vencida { border: 1px solid #f87171; }
+  .item.vencida .info b { color: #f87171; }
   .item .info { flex: 1; min-width: 160px; }
   .item .info b { display:block; font-size:15px; }
   .item .info span { font-size: 13px; color: #8b93a7; }
@@ -79,6 +82,7 @@
   .tag { display: inline-block; background: #16321f; color: #4ade80; border-radius: 6px; padding: 1px 8px; font-size: 12px; margin-left: 6px; }
   .tag.admin { background: #1e2a4a; color: #7c9cf5; }
   .tag.gorjeta { background: #3a2a1a; color: #fbbf24; }
+  .tag.vencida { background: #3a1a1a; color: #f87171; }
   .hint { font-size: 12px; color: #8b93a7; margin-bottom: 10px; line-height: 1.5; }
   .hint code { background: #232a45; padding: 1px 5px; border-radius: 4px; }
   #loteResultado { margin-top: 10px; font-size: 14px; }
@@ -124,11 +128,11 @@
     <h2>⚡ Cadastro em Lote <span class="badge">cole e clique</span></h2>
     <div class="hint">
       Cole uma linha para cada item, no formato:<br>
-      <code>tarefa; descrição; data(opcional); tipo(geral / rmoadmin / rmoservico)</code><br>
-      <code>receita; categoria; valor; data(opcional); descrição; gorjeta(opcional)</code><br>
+      <code>tarefa; descrição; data(opcional, DD/MM/AAAA); tipo(geral / rmoadmin / rmoservico)</code><br>
+      <code>receita; categoria(DoorDash / RMO Carpet & Upholstery / Outro); valor; data(opcional); descrição; gorjeta(opcional)</code><br>
       <code>conta fixa; nome; valor; dia</code><br>
       <code>pagamento unico; nome; valor; data(opcional)</code><br>
-      <code>despesa; categoria; valor; data(opcional); local</code>
+      <code>despesa; categoria(Supermercado / Combustível / Alimentação / Manutenção do Carro / Outro); valor; data(opcional); local</code>
     </div>
     <textarea id="loteTexto" placeholder="Cole aqui o bloco de texto..."></textarea>
     <button class="btn-add big" onclick="processarLote()">Adicionar tudo</button>
@@ -141,6 +145,7 @@
       <input type="date" id="periodoInicio">
       <input type="date" id="periodoFim">
       <button class="btn-add yellow" onclick="consultarPeriodo()">Consultar</button>
+      <button class="btn-clear" onclick="limparPeriodo()">Limpar</button>
     </div>
     <div id="periodoResultado"></div>
   </div>
@@ -215,6 +220,7 @@
       <input id="tarefaDesc" placeholder="Descreva a tarefa">
       <button class="btn-mic" type="button" onclick="ditar('tarefaDesc', this)">🎤</button>
       <input id="tarefaData" type="date">
+      <input id="tarefaHora" type="time">
       <select id="tarefaTipo">
         <option value="geral">Tarefa Geral</option>
         <option value="rmoadmin">RMO - Assunto/Administrativo</option>
@@ -229,9 +235,9 @@
   <div class="panel">
     <h2>🗓️ Calendário — Tarefas Gerais</h2>
     <div class="mes-nav">
-      <button class="btn-nav" onclick="mudarMes('geral',-1)">◀</button>
+      <button class="btn-nav" onclick="mudarMes('geral',-1)">◀️</button>
       <div class="mes-label" id="mesLabelGeral"></div>
-      <button class="btn-nav" onclick="mudarMes('geral',1)">▶</button>
+      <button class="btn-nav" onclick="mudarMes('geral',1)">▶️</button>
     </div>
     <div class="cal-grid" id="calGeral"></div>
   </div>
@@ -239,9 +245,9 @@
   <div class="panel rmo">
     <h2>🧼 Calendário — RMO Carpet & Upholstery</h2>
     <div class="mes-nav">
-      <button class="btn-nav" onclick="mudarMes('rmo',-1)">◀</button>
+      <button class="btn-nav" onclick="mudarMes('rmo',-1)">◀️</button>
       <div class="mes-label" id="mesLabelRmo"></div>
-      <button class="btn-nav" onclick="mudarMes('rmo',1)">▶</button>
+      <button class="btn-nav" onclick="mudarMes('rmo',1)">▶️</button>
     </div>
     <div class="cal-grid" id="calRmo"></div>
   </div>
@@ -284,12 +290,28 @@ function diasAtras(dataStr, criadoEm) {
   const base = dataStr ? new Date(dataStr + 'T12:00:00') : new Date(criadoEm);
   return (Date.now() - base.getTime()) / (1000*60*60*24);
 }
+// Aceita tanto DD/MM/AAAA quanto AAAA-MM-DD e sempre devolve AAAA-MM-DD
+function normalizarData(str) {
+  if (!str) return null;
+  str = String(str).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const dia = m[1].padStart(2,'0');
+    const mes = m[2].padStart(2,'0');
+    return `${m[3]}-${mes}-${dia}`;
+  }
+  return str;
+}
 
 const receitasCol = collection(db, 'receitas');
 const fixasCol = collection(db, 'contasFixas');
 const unicosCol = collection(db, 'pagamentosUnicos');
 const tarefasCol = collection(db, 'tarefas');
 const despesasCol = collection(db, 'despesas');
+
+const CATEGORIAS_RECEITA = ['DoorDash','RMO Carpet & Upholstery','Outro'];
+const CATEGORIAS_DESPESA = ['Supermercado','Combustível','Alimentação','Manutenção do Carro','Outro'];
 
 // ---------- MICROFONE CONTÍNUO ----------
 const recognitions = {};
@@ -347,19 +369,21 @@ window.processarLote = async () => {
     try {
       if (tipo === 'tarefa') {
         const desc = partes[1];
-        const data = partes[2] || null;
+        const data = normalizarData(partes[2]);
         let tipoTarefa = (partes[3] || 'geral').toLowerCase();
         if (!['geral','rmoadmin','rmoservico'].includes(tipoTarefa)) tipoTarefa = 'geral';
         if (!desc) throw new Error('faltou descrição');
         await addDoc(tarefasCol, { desc, data, tipo: tipoTarefa, feita: false, criadoEm: Date.now() });
       } else if (tipo === 'receita') {
-        const categoria = partes[1] || 'Outro';
+        const categoriaBruta = partes[1] || 'Outro';
+        const catValida = CATEGORIAS_RECEITA.find(c => c.toLowerCase() === categoriaBruta.toLowerCase());
+        if (!catValida) throw new Error(`categoria "${categoriaBruta}" inválida - use: ${CATEGORIAS_RECEITA.join(' / ')}`);
         const valor = parseFloat(partes[2]);
-        const data = partes[3] || null;
-        const nome = partes[4] || categoria;
+        const data = normalizarData(partes[3]);
+        const nome = partes[4] || catValida;
         const gorjeta = parseFloat(partes[5]) || 0;
         if (isNaN(valor)) throw new Error('valor inválido');
-        await addDoc(receitasCol, { nome, valor, gorjeta, categoria, data, criadoEm: Date.now() });
+        await addDoc(receitasCol, { nome, valor, gorjeta, categoria: catValida, data, criadoEm: Date.now() });
       } else if (tipo === 'conta fixa' || tipo === 'contafixa') {
         const nome = partes[1];
         const valor = parseFloat(partes[2]);
@@ -369,16 +393,18 @@ window.processarLote = async () => {
       } else if (tipo === 'pagamento unico' || tipo === 'pagamentounico') {
         const nome = partes[1];
         const valor = parseFloat(partes[2]);
-        const data = partes[3] || null;
+        const data = normalizarData(partes[3]);
         if (!nome || isNaN(valor)) throw new Error('dados inválidos');
         await addDoc(unicosCol, { nome, valor, data, pago: false, criadoEm: Date.now() });
       } else if (tipo === 'despesa') {
-        const categoria = partes[1] || 'Outro';
+        const categoriaBruta = partes[1] || 'Outro';
+        const catValida = CATEGORIAS_DESPESA.find(c => c.toLowerCase() === categoriaBruta.toLowerCase());
+        if (!catValida) throw new Error(`categoria "${categoriaBruta}" inválida - use: ${CATEGORIAS_DESPESA.join(' / ')}`);
         const valor = parseFloat(partes[2]);
-        const data = partes[3] || null;
-        const local = partes[4] || categoria;
+        const data = normalizarData(partes[3]);
+        const local = partes[4] || catValida;
         if (isNaN(valor)) throw new Error('valor inválido');
-        await addDoc(despesasCol, { local, valor, categoria, data, criadoEm: Date.now() });
+        await addDoc(despesasCol, { local, valor, categoria: catValida, data, criadoEm: Date.now() });
       } else {
         throw new Error('tipo não reconhecido');
       }
@@ -486,7 +512,7 @@ window.editReceita = async (id, nomeAtual, valorAtual, catAtual, dataAtual, gorj
   const categoria = prompt('Categoria (DoorDash / RMO Carpet & Upholstery / Outro):', catAtual); if (categoria === null) return;
   const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
   const gorjeta = prompt('Gorjeta $ (0 se não teve):', gorjetaAtual); if (gorjeta === null) return;
-  await updateDoc(doc(db,'receitas',id), { nome, valor: parseFloat(valor), categoria, data: data || null, gorjeta: parseFloat(gorjeta)||0 });
+  await updateDoc(doc(db,'receitas',id), { nome, valor: parseFloat(valor), categoria, data: normalizarData(data), gorjeta: parseFloat(gorjeta)||0 });
 };
 
 // ---------- DESPESAS DIA A DIA ----------
@@ -533,7 +559,7 @@ window.editDespesa = async (id, localAtual, valorAtual, catAtual, dataAtual) => 
   const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
   const categoria = prompt('Categoria (Supermercado / Combustível / Alimentação / Manutenção do Carro / Outro):', catAtual); if (categoria === null) return;
   const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
-  await updateDoc(doc(db,'despesas',id), { local, valor: parseFloat(valor), categoria, data: data || null });
+  await updateDoc(doc(db,'despesas',id), { local, valor: parseFloat(valor), categoria, data: normalizarData(data) });
 };
 
 // ---------- CONTAS FIXAS ----------
@@ -569,9 +595,12 @@ function renderFixas() {
 
 function criarItemFixa(it) {
   const div = document.createElement('div');
-  div.className = 'item' + (it.pago ? ' paid' : '');
+  const hojeDia = new Date().getDate();
+  const vencida = !it.pago && it.dia && hojeDia > it.dia;
+  div.className = 'item' + (it.pago ? ' paid' : '') + (vencida ? ' vencida' : '');
+  const tagVencida = vencida ? '<span class="tag vencida">Vencida</span>' : '';
   div.innerHTML = `
-    <div class="info"><b>${it.nome}</b><span>${fmt(it.valor)} · vence dia ${it.dia || '-'}</span></div>
+    <div class="info"><b>${it.nome}${tagVencida}</b><span>${fmt(it.valor)} · vence dia ${it.dia || '-'}</span></div>
     <div class="actions">
       <button class="btn-edit" onclick="editFixa('${it.id}','${it.nome}',${it.valor},${it.dia||0})">✏️</button>
       <button class="btn-pay" onclick="togglePagoFixa('${it.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
@@ -635,10 +664,13 @@ function renderUnicos() {
 }
 
 function criarItemUnico(it) {
+  const hojeStr = new Date().toISOString().slice(0,10);
+  const vencido = !it.pago && it.data && it.data < hojeStr;
   const div = document.createElement('div');
-  div.className = 'item' + (it.pago ? ' paid' : '');
+  div.className = 'item' + (it.pago ? ' paid' : '') + (vencido ? ' vencida' : '');
+  const tagVencida = vencido ? '<span class="tag vencida">Vencido</span>' : '';
   div.innerHTML = `
-    <div class="info"><b>${it.nome}</b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ' · sem data'}</span></div>
+    <div class="info"><b>${it.nome}${tagVencida}</b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ' · sem data'}</span></div>
     <div class="actions">
       <button class="btn-edit" onclick="editUnico('${it.id}','${it.nome}',${it.valor},'${it.data||''}')">✏️</button>
       <button class="btn-pay" onclick="togglePagoUnico('${it.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
@@ -663,7 +695,7 @@ window.editUnico = async (id, nomeAtual, valorAtual, dataAtual) => {
   const nome = prompt('Nome:', nomeAtual); if (nome === null) return;
   const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
   const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
-  await updateDoc(doc(db,'pagamentosUnicos',id), { nome, valor: parseFloat(valor), data: data || null });
+  await updateDoc(doc(db,'pagamentosUnicos',id), { nome, valor: parseFloat(valor), data: normalizarData(data) });
 };
 
 // ---------- TAREFAS ----------
@@ -686,8 +718,9 @@ function criarItemTarefa(it) {
   const div = document.createElement('div');
   div.className = 'item' + (it.feita ? ' paid' : '');
   const t = labelTipo(it.tipo);
+  const dataHora = it.data ? it.data.split('-').reverse().join('/') + (it.hora ? ' às ' + it.hora : '') : '';
   div.innerHTML = `
-    <div class="info"><b>${it.desc} <span class="tag ${t.classe}">${t.texto}</span></b>${it.data ? '<span>' + it.data.split('-').reverse().join('/') + '</span>' : ''}</div>
+    <div class="info"><b>${it.desc} <span class="tag ${t.classe}">${t.texto}</span></b>${dataHora ? '<span>' + dataHora + '</span>' : ''}</div>
     <div class="actions">
       <button class="btn-edit" onclick="editTarefa('${it.id}','${it.desc}','${it.data||''}','${it.tipo||'geral'}')">✏️</button>
       <button class="btn-pay" onclick="toggleTarefa('${it.id}', ${!it.feita})">${it.feita ? 'Reabrir' : 'Concluir'}</button>
@@ -735,11 +768,13 @@ function renderTarefas() {
 window.addTarefa = async () => {
   const desc = document.getElementById('tarefaDesc').value.trim();
   const data = document.getElementById('tarefaData').value || null;
+  const hora = document.getElementById('tarefaHora').value || null;
   const tipo = document.getElementById('tarefaTipo').value;
   if (!desc) return;
-  await addDoc(tarefasCol, { desc, data, tipo, feita: false, criadoEm: Date.now() });
+  await addDoc(tarefasCol, { desc, data, hora, tipo, feita: false, criadoEm: Date.now() });
   document.getElementById('tarefaDesc').value = '';
   document.getElementById('tarefaData').value = '';
+  document.getElementById('tarefaHora').value = '';
 };
 window.toggleTarefa = async (id, feita) => updateDoc(doc(db,'tarefas',id), { feita });
 window.delTarefa = async (id) => { if(confirm('Apagar esta tarefa?')) deleteDoc(doc(db,'tarefas',id)); };
@@ -748,7 +783,7 @@ window.editTarefa = async (id, descAtual, dataAtual, tipoAtual) => {
   const data = prompt('Data (AAAA-MM-DD, deixe vazio se não tiver):', dataAtual); if (data === null) return;
   const tipo = prompt('Tipo (geral / rmoadmin / rmoservico):', tipoAtual); if (tipo === null) return;
   const tipoFinal = ['geral','rmoadmin','rmoservico'].includes(tipo.toLowerCase()) ? tipo.toLowerCase() : 'geral';
-  await updateDoc(doc(db,'tarefas',id), { desc, data: data || null, tipo: tipoFinal });
+  await updateDoc(doc(db,'tarefas',id), { desc, data: normalizarData(data), tipo: tipoFinal });
 };
 
 // ---------- TOTAIS ----------
@@ -774,6 +809,12 @@ function recalcSaldo() {
 }
 
 // ---------- CONSULTA POR PERÍODO ----------
+window.limparPeriodo = () => {
+  document.getElementById('periodoInicio').value = '';
+  document.getElementById('periodoFim').value = '';
+  document.getElementById('periodoResultado').innerHTML = '';
+};
+
 window.consultarPeriodo = () => {
   const inicio = document.getElementById('periodoInicio').value;
   const fim = document.getElementById('periodoFim').value;
@@ -782,14 +823,17 @@ window.consultarPeriodo = () => {
   const dentro = (d) => d && d >= inicio && d <= fim;
 
   const recPorCat = {};
+  const itensReceita = [];
   let recTotal = 0, gorjetaTotal = 0;
   receitasCache.forEach(it => {
     if (dentro(it.data)) {
       recPorCat[it.categoria] = (recPorCat[it.categoria]||0) + Number(it.valor||0);
       recTotal += Number(it.valor||0);
       gorjetaTotal += Number(it.gorjeta||0);
+      itensReceita.push(it);
     }
   });
+  itensReceita.sort(ordemDataDesc);
 
   const despPorCat = {};
   let despTotal = 0;
@@ -811,6 +855,16 @@ window.consultarPeriodo = () => {
   if (gorjetaTotal > 0) html += `<span>Gorjetas: ${fmt(gorjetaTotal)}</span>`;
   html += `<span><b>Total receitas: ${fmt(recTotal + gorjetaTotal)}</b></span>`;
   html += '</div>';
+
+  if (itensReceita.length > 0) {
+    html += '<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">';
+    html += '<b>📋 Detalhe das receitas do período</b>';
+    itensReceita.forEach(it => {
+      const totalIt = Number(it.valor||0) + Number(it.gorjeta||0);
+      html += `<span>${it.nome}: ${fmt(totalIt)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ''}</span>`;
+    });
+    html += '</div>';
+  }
 
   html += '<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">';
   html += '<b>💸 Despesas por categoria</b>';
@@ -862,7 +916,7 @@ function construirGrade(containerId, labelId, qual) {
     const dia = parseInt(it.data.split('-')[2]);
     const pertenceGeral = qual === 'geral' && (it.tipo === 'geral' || it.tipo === 'rmoadmin' || !it.tipo);
     const pertenceRmo = qual === 'rmo' && it.tipo === 'rmoservico';
-    if (pertenceGeral || pertenceRmo) addEvento(dia, it.desc, it.feita);
+    if (pertenceGeral || pertenceRmo) addEvento(dia, it.desc + (it.hora ? ' (' + it.hora + ')' : ''), it.feita);
   });
 
   if (qual === 'rmo') {
