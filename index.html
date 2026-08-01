@@ -39,6 +39,7 @@
   .panel.rmo { border: 2px solid #4ade80; }
   .panel.despesa { border: 2px solid #f87171; }
   .panel.periodo { border: 2px solid #fbbf24; }
+  .panel.busca { border: 2px solid #a78bfa; }
   .panel h2 { font-size: 17px; margin: 0 0 12px; display:flex; align-items:center; gap:8px; flex-wrap: wrap; }
   .badge { margin-left:auto; background:#2a3350; border-radius:10px; padding:2px 10px; font-size:13px; }
   .row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -56,6 +57,7 @@
   .btn-add.green { background: #2ecc71; }
   .btn-add.red { background: #e74c3c; }
   .btn-add.yellow { background: #fbbf24; color: #1a1a1a; }
+  .btn-add.purple { background: #a78bfa; color: #1a1a1a; }
   .btn-add.big { padding: 12px 20px; font-size: 15px; margin-top: 10px; }
   .btn-pay { background: #3a3520; color: #fbbf24; border: 1px solid #6b5f2a; }
   .btn-edit { background: #2a3350; color: #7c9cf5; border: 1px solid #3d4a75; padding: 8px 10px; }
@@ -72,8 +74,9 @@
   }
   .item.vencida { border: 1px solid #f87171; }
   .item.vencida .info b { color: #f87171; }
+  .item.destaque { outline: 2px solid #a78bfa; }
   .item .info { flex: 1; min-width: 160px; }
-  .item .info b { display:block; font-size:15px; }
+  .item .info b { display:flex; align-items:center; gap: 6px; font-size:15px; }
   .item .info span { font-size: 13px; color: #8b93a7; }
   .item .actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
   .empty { text-align: center; color: #565f7a; padding: 20px 0; }
@@ -83,11 +86,17 @@
   .tag.admin { background: #1e2a4a; color: #7c9cf5; }
   .tag.gorjeta { background: #3a2a1a; color: #fbbf24; }
   .tag.vencida { background: #3a1a1a; color: #f87171; }
+  .prio-dot { display:inline-block; width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .prio-dot.alta { background:#f87171; }
+  .prio-dot.media { background:#fbbf24; }
+  .prio-dot.baixa { background:#4ade80; }
+  select.prio-select { max-width: 130px; }
   .hint { font-size: 12px; color: #8b93a7; margin-bottom: 10px; line-height: 1.5; }
   .hint code { background: #232a45; padding: 1px 5px; border-radius: 4px; }
   #loteResultado { margin-top: 10px; font-size: 14px; }
   #loteResultado.ok { color: #4ade80; }
   #loteResultado.erro { color: #f87171; }
+  #buscaResultado { margin-top: 10px; font-size: 13px; color: #a78bfa; }
   .mes-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 14px; }
   .mes-nav .mes-label { font-size: 16px; font-weight: bold; min-width: 150px; text-align: center; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -104,7 +113,12 @@
   .modal-fundo.aberto { display: flex; }
   .modal-caixa { background: #1a2035; border-radius: 14px; padding: 20px; max-width: 450px; width: 100%; max-height: 80vh; overflow-y: auto; }
   .modal-caixa h3 { margin-top:0; color: #7c9cf5; }
-  .modal-fechar { background: #2a3350; color: #e8ecf4; width: 100%; margin-top: 12px; }
+  .modal-caixa label { display:block; font-size: 12px; color: #8b93a7; margin: 10px 0 4px; }
+  .modal-caixa .modal-row { display:flex; gap:8px; }
+  .modal-botoes { display:flex; gap: 8px; margin-top: 16px; }
+  .modal-botoes button { flex: 1; }
+  .modal-salvar { background: #3b6bf7; color: white; }
+  .modal-fechar { background: #2a3350; color: #e8ecf4; }
 </style>
 </head>
 <body>
@@ -124,11 +138,21 @@
     <div class="card"><div class="label">Tarefas Pendentes</div><div class="value yellow" id="totalTarefas">0</div></div>
   </div>
 
+  <div class="panel busca">
+    <h2>🔍 Buscar em tudo <span class="badge">tarefas, contas e receitas</span></h2>
+    <div class="row">
+      <input id="buscaTexto" placeholder="Digite o que procura...">
+      <button class="btn-add purple" onclick="buscarTudo()">Buscar</button>
+      <button class="btn-clear" onclick="limparBusca()">Limpar</button>
+    </div>
+    <div id="buscaResultado"></div>
+  </div>
+
   <div class="panel lote">
     <h2>⚡ Cadastro em Lote <span class="badge">cole e clique</span></h2>
     <div class="hint">
       Cole uma linha para cada item, no formato:<br>
-      <code>tarefa; descrição; data(opcional, DD/MM/AAAA); tipo(geral / rmoadmin / rmoservico)</code><br>
+      <code>tarefa; descrição; data(opcional, DD/MM/AAAA); tipo(geral / rmoadmin / rmoservico); prioridade(alta/media/baixa, opcional)</code><br>
       <code>receita; categoria(DoorDash / RMO Carpet & Upholstery / Outro); valor; data(opcional); descrição; gorjeta(opcional)</code><br>
       <code>conta fixa; nome; valor; dia</code><br>
       <code>pagamento unico; nome; valor; data(opcional)</code><br>
@@ -217,6 +241,7 @@
 
   <div class="panel">
     <h2>✅ Lista de Tarefas <span class="badge" id="countTarefas">0</span></h2>
+    <div class="hint">🔴 Alta prioridade &nbsp; 🟡 Média prioridade &nbsp; 🟢 Pode esperar. As tarefas pendentes ficam ordenadas por prioridade.</div>
     <div class="row">
       <input id="tarefaDesc" placeholder="Descreva a tarefa">
       <button class="btn-mic" type="button" onclick="ditar('tarefaDesc', this)">🎤</button>
@@ -226,6 +251,11 @@
         <option value="geral">Tarefa Geral</option>
         <option value="rmoadmin">RMO - Assunto/Administrativo</option>
         <option value="rmoservico">RMO - Serviço Agendado</option>
+      </select>
+      <select id="tarefaPrioridade" class="prio-select">
+        <option value="media">🟡 Média prioridade</option>
+        <option value="alta">🔴 Alta prioridade</option>
+        <option value="baixa">🟢 Pode esperar</option>
       </select>
       <button class="btn-add" onclick="addTarefa()">Adicionar</button>
     </div>
@@ -258,7 +288,18 @@
   <div class="modal-caixa">
     <h3 id="modalTitulo">Dia</h3>
     <div id="modalConteudo"></div>
-    <button class="modal-fechar" onclick="fecharModal()">Fechar</button>
+    <button class="modal-fechar" onclick="fecharModal()" style="width:100%; margin-top:12px;">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-fundo" id="modalEditar">
+  <div class="modal-caixa">
+    <h3 id="modalEditarTitulo">Editar</h3>
+    <div id="modalEditarConteudo"></div>
+    <div class="modal-botoes">
+      <button class="modal-fechar" onclick="fecharModalEditar()">Cancelar</button>
+      <button class="modal-salvar" id="modalEditarSalvar">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -303,15 +344,23 @@ function normalizarData(str) {
   }
   return str;
 }
-// ---------- CHAVE DO MÊS ATUAL, pra controlar contas fixas mês a mês ----------
 function mesAtualKey() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 function estaPagoFixaNoMes(it, mesKey) {
   if (it.pagamentos && (mesKey in it.pagamentos)) return !!it.pagamentos[mesKey];
-  // dados antigos que só tinham "pago" (sem separar por mês) contam pro mês atual uma única vez
   return !!it.pago;
+}
+function prioridadeOrdem(p) {
+  if (p === 'alta') return 0;
+  if (p === 'baixa') return 2;
+  return 1; // media (padrão)
+}
+function prioridadeDotHtml(p) {
+  const classe = p === 'alta' ? 'alta' : (p === 'baixa' ? 'baixa' : 'media');
+  const titulo = p === 'alta' ? 'Alta prioridade' : (p === 'baixa' ? 'Pode esperar' : 'Média prioridade');
+  return `<span class="prio-dot ${classe}" title="${titulo}"></span>`;
 }
 
 const receitasCol = collection(db, 'receitas');
@@ -383,8 +432,10 @@ window.processarLote = async () => {
         const data = normalizarData(partes[2]);
         let tipoTarefa = (partes[3] || 'geral').toLowerCase();
         if (!['geral','rmoadmin','rmoservico'].includes(tipoTarefa)) tipoTarefa = 'geral';
+        let prioridade = (partes[4] || 'media').toLowerCase();
+        if (!['alta','media','baixa'].includes(prioridade)) prioridade = 'media';
         if (!desc) throw new Error('faltou descrição');
-        await addDoc(tarefasCol, { desc, data, tipo: tipoTarefa, feita: false, criadoEm: Date.now() });
+        await addDoc(tarefasCol, { desc, data, tipo: tipoTarefa, prioridade, feita: false, criadoEm: Date.now() });
       } else if (tipo === 'receita') {
         const categoriaBruta = partes[1] || 'Outro';
         const catValida = CATEGORIAS_RECEITA.find(c => c.toLowerCase() === categoriaBruta.toLowerCase());
@@ -434,6 +485,21 @@ window.processarLote = async () => {
     resultado.className = 'erro';
   }
 };
+
+// ---------- MODAL DE EDIÇÃO GENÉRICO ----------
+function abrirModalEditar(titulo, camposHtml, aoSalvar) {
+  document.getElementById('modalEditarTitulo').textContent = titulo;
+  document.getElementById('modalEditarConteudo').innerHTML = camposHtml;
+  const btnSalvar = document.getElementById('modalEditarSalvar');
+  const novoBtn = btnSalvar.cloneNode(true);
+  btnSalvar.parentNode.replaceChild(novoBtn, btnSalvar);
+  novoBtn.addEventListener('click', async () => {
+    await aoSalvar();
+    fecharModalEditar();
+  });
+  document.getElementById('modalEditar').classList.add('aberto');
+}
+window.fecharModalEditar = () => document.getElementById('modalEditar').classList.remove('aberto');
 
 // ---------- RECEITAS ----------
 let receitasCache = [];
@@ -492,6 +558,8 @@ function renderReceitas() {
 function criarItemReceita(it) {
   const div = document.createElement('div');
   div.className = 'item';
+  div.dataset.buscaTexto = (it.nome + ' ' + (it.categoria||'')).toLowerCase();
+  div.dataset.buscaGrupo = 'receita';
   const totalItem = Number(it.valor||0) + Number(it.gorjeta||0);
   const gorjetaHtml = it.gorjeta ? `<span class="tag gorjeta">+${fmt(it.gorjeta)} gorjeta</span>` : '';
   div.innerHTML = `
@@ -517,13 +585,28 @@ window.addReceita = async () => {
   document.getElementById('receitaData').value = '';
 };
 window.delReceita = async (id) => { if(confirm('Apagar esta receita?')) deleteDoc(doc(db,'receitas',id)); };
-window.editReceita = async (id, nomeAtual, valorAtual, catAtual, dataAtual, gorjetaAtual) => {
-  const nome = prompt('Descrição:', nomeAtual); if (nome === null) return;
-  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
-  const categoria = prompt('Categoria (DoorDash / RMO Carpet & Upholstery / Outro):', catAtual); if (categoria === null) return;
-  const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
-  const gorjeta = prompt('Gorjeta $ (0 se não teve):', gorjetaAtual); if (gorjeta === null) return;
-  await updateDoc(doc(db,'receitas',id), { nome, valor: parseFloat(valor), categoria, data: normalizarData(data), gorjeta: parseFloat(gorjeta)||0 });
+window.editReceita = (id, nomeAtual, valorAtual, catAtual, dataAtual, gorjetaAtual) => {
+  const dataBR = dataAtual ? dataAtual.split('-').reverse().join('/') : '';
+  const opcoesCat = CATEGORIAS_RECEITA.map(c => `<option value="${c}" ${c===catAtual?'selected':''}>${c}</option>`).join('');
+  abrirModalEditar('Editar Receita', `
+    <label>Descrição</label>
+    <input id="edNome" value="${nomeAtual}">
+    <label>Categoria</label>
+    <select id="edCat">${opcoesCat}</select>
+    <div class="modal-row">
+      <div style="flex:1"><label>Valor $</label><input id="edValor" type="number" value="${valorAtual}"></div>
+      <div style="flex:1"><label>Gorjeta $</label><input id="edGorjeta" type="number" value="${gorjetaAtual}"></div>
+    </div>
+    <label>Data (DD/MM/AAAA)</label>
+    <input id="edData" value="${dataBR}">
+  `, async () => {
+    const nome = document.getElementById('edNome').value.trim();
+    const categoria = document.getElementById('edCat').value;
+    const valor = parseFloat(document.getElementById('edValor').value);
+    const gorjeta = parseFloat(document.getElementById('edGorjeta').value) || 0;
+    const data = normalizarData(document.getElementById('edData').value);
+    await updateDoc(doc(db,'receitas',id), { nome, categoria, valor, gorjeta, data });
+  });
 };
 
 // ---------- DESPESAS DIA A DIA ----------
@@ -540,6 +623,8 @@ onSnapshot(query(despesasCol, orderBy('criadoEm')), (snap) => {
     total += Number(it.valor || 0);
     const div = document.createElement('div');
     div.className = 'item';
+    div.dataset.buscaTexto = (it.local + ' ' + it.categoria).toLowerCase();
+    div.dataset.buscaGrupo = 'despesa';
     div.innerHTML = `
       <div class="info"><b>${it.local} <span class="tag">${it.categoria}</span></b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ''}</span></div>
       <div class="actions">
@@ -565,12 +650,25 @@ window.addDespesa = async () => {
   document.getElementById('despesaData').value = '';
 };
 window.delDespesa = async (id) => { if(confirm('Apagar esta despesa?')) deleteDoc(doc(db,'despesas',id)); };
-window.editDespesa = async (id, localAtual, valorAtual, catAtual, dataAtual) => {
-  const local = prompt('Local:', localAtual); if (local === null) return;
-  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
-  const categoria = prompt('Categoria (Supermercado / Combustível / Alimentação / Manutenção do Carro / Outro):', catAtual); if (categoria === null) return;
-  const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
-  await updateDoc(doc(db,'despesas',id), { local, valor: parseFloat(valor), categoria, data: normalizarData(data) });
+window.editDespesa = (id, localAtual, valorAtual, catAtual, dataAtual) => {
+  const dataBR = dataAtual ? dataAtual.split('-').reverse().join('/') : '';
+  const opcoesCat = CATEGORIAS_DESPESA.map(c => `<option value="${c}" ${c===catAtual?'selected':''}>${c}</option>`).join('');
+  abrirModalEditar('Editar Despesa', `
+    <label>Local</label>
+    <input id="edLocal" value="${localAtual}">
+    <label>Categoria</label>
+    <select id="edCat">${opcoesCat}</select>
+    <label>Valor $</label>
+    <input id="edValor" type="number" value="${valorAtual}">
+    <label>Data (DD/MM/AAAA)</label>
+    <input id="edData" value="${dataBR}">
+  `, async () => {
+    const local = document.getElementById('edLocal').value.trim();
+    const categoria = document.getElementById('edCat').value;
+    const valor = parseFloat(document.getElementById('edValor').value);
+    const data = normalizarData(document.getElementById('edData').value);
+    await updateDoc(doc(db,'despesas',id), { local, categoria, valor, data });
+  });
 };
 
 // ---------- CONTAS FIXAS (com controle mês a mês) ----------
@@ -611,6 +709,8 @@ function criarItemFixa(it, mesKey) {
   const hojeDia = new Date().getDate();
   const vencida = !pago && it.dia && hojeDia > it.dia;
   div.className = 'item' + (pago ? ' paid' : '') + (vencida ? ' vencida' : '');
+  div.dataset.buscaTexto = it.nome.toLowerCase();
+  div.dataset.buscaGrupo = 'fixa';
   const tagVencida = vencida ? '<span class="tag vencida">Vencida</span>' : '';
   const [ano, mesNum] = mesKey.split('-');
   const mesLabel = nomesMeses[parseInt(mesNum) - 1];
@@ -639,11 +739,20 @@ window.togglePagoFixa = async (id, pago) => {
   await updateDoc(doc(db,'contasFixas',id), { [`pagamentos.${mesKey}`]: pago });
 };
 window.delFixa = async (id) => { if(confirm('Apagar este item?')) deleteDoc(doc(db,'contasFixas',id)); };
-window.editFixa = async (id, nomeAtual, valorAtual, diaAtual) => {
-  const nome = prompt('Nome:', nomeAtual); if (nome === null) return;
-  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
-  const dia = prompt('Dia de vencimento:', diaAtual); if (dia === null) return;
-  await updateDoc(doc(db,'contasFixas',id), { nome, valor: parseFloat(valor), dia: parseInt(dia)||null });
+window.editFixa = (id, nomeAtual, valorAtual, diaAtual) => {
+  abrirModalEditar('Editar Conta Fixa', `
+    <label>Nome</label>
+    <input id="edNome" value="${nomeAtual}">
+    <div class="modal-row">
+      <div style="flex:1"><label>Valor $</label><input id="edValor" type="number" value="${valorAtual}"></div>
+      <div style="flex:1"><label>Dia de vencimento</label><input id="edDia" type="number" value="${diaAtual}"></div>
+    </div>
+  `, async () => {
+    const nome = document.getElementById('edNome').value.trim();
+    const valor = parseFloat(document.getElementById('edValor').value);
+    const dia = parseInt(document.getElementById('edDia').value) || null;
+    await updateDoc(doc(db,'contasFixas',id), { nome, valor, dia });
+  });
 };
 
 // ---------- PAGAMENTOS ÚNICOS ----------
@@ -686,6 +795,8 @@ function criarItemUnico(it) {
   const vencido = !it.pago && it.data && it.data < hojeStr;
   const div = document.createElement('div');
   div.className = 'item' + (it.pago ? ' paid' : '') + (vencido ? ' vencida' : '');
+  div.dataset.buscaTexto = it.nome.toLowerCase();
+  div.dataset.buscaGrupo = 'unico';
   const tagVencida = vencido ? '<span class="tag vencida">Vencido</span>' : '';
   div.innerHTML = `
     <div class="info"><b>${it.nome}${tagVencida}</b><span>${fmt(it.valor)}${it.data ? ' · ' + it.data.split('-').reverse().join('/') : ' · sem data'}</span></div>
@@ -709,11 +820,21 @@ window.addUnico = async () => {
 };
 window.togglePagoUnico = async (id, pago) => updateDoc(doc(db,'pagamentosUnicos',id), { pago });
 window.delUnico = async (id) => { if(confirm('Apagar este item?')) deleteDoc(doc(db,'pagamentosUnicos',id)); };
-window.editUnico = async (id, nomeAtual, valorAtual, dataAtual) => {
-  const nome = prompt('Nome:', nomeAtual); if (nome === null) return;
-  const valor = prompt('Valor $:', valorAtual); if (valor === null) return;
-  const data = prompt('Data (AAAA-MM-DD):', dataAtual); if (data === null) return;
-  await updateDoc(doc(db,'pagamentosUnicos',id), { nome, valor: parseFloat(valor), data: normalizarData(data) });
+window.editUnico = (id, nomeAtual, valorAtual, dataAtual) => {
+  const dataBR = dataAtual ? dataAtual.split('-').reverse().join('/') : '';
+  abrirModalEditar('Editar Pagamento Único', `
+    <label>Nome</label>
+    <input id="edNome" value="${nomeAtual}">
+    <label>Valor $</label>
+    <input id="edValor" type="number" value="${valorAtual}">
+    <label>Data (DD/MM/AAAA)</label>
+    <input id="edData" value="${dataBR}">
+  `, async () => {
+    const nome = document.getElementById('edNome').value.trim();
+    const valor = parseFloat(document.getElementById('edValor').value);
+    const data = normalizarData(document.getElementById('edData').value);
+    await updateDoc(doc(db,'pagamentosUnicos',id), { nome, valor, data });
+  });
 };
 
 // ---------- TAREFAS ----------
@@ -735,12 +856,14 @@ function labelTipo(tipo) {
 function criarItemTarefa(it) {
   const div = document.createElement('div');
   div.className = 'item' + (it.feita ? ' paid' : '');
+  div.dataset.buscaTexto = it.desc.toLowerCase();
+  div.dataset.buscaGrupo = it.feita ? 'tarefa-concluida' : 'tarefa';
   const t = labelTipo(it.tipo);
   const dataHora = it.data ? it.data.split('-').reverse().join('/') + (it.hora ? ' às ' + it.hora : '') : '';
   div.innerHTML = `
-    <div class="info"><b>${it.desc} <span class="tag ${t.classe}">${t.texto}</span></b>${dataHora ? '<span>' + dataHora + '</span>' : ''}</div>
+    <div class="info"><b>${prioridadeDotHtml(it.prioridade)}${it.desc} <span class="tag ${t.classe}">${t.texto}</span></b>${dataHora ? '<span>' + dataHora + '</span>' : ''}</div>
     <div class="actions">
-      <button class="btn-edit" onclick="editTarefa('${it.id}','${it.desc}','${it.data||''}','${it.tipo||'geral'}')">✏️</button>
+      <button class="btn-edit" onclick="editTarefa('${it.id}','${it.desc}','${it.data||''}','${it.hora||''}','${it.tipo||'geral'}','${it.prioridade||'media'}')">✏️</button>
       <button class="btn-pay" onclick="toggleTarefa('${it.id}', ${!it.feita})">${it.feita ? 'Reabrir' : 'Concluir'}</button>
       <button class="btn-del" onclick="delTarefa('${it.id}')">✕</button>
     </div>`;
@@ -748,7 +871,11 @@ function criarItemTarefa(it) {
 }
 
 function renderTarefas() {
-  const pendentes = tarefasCache.filter(it => !it.feita).sort((a,b)=>b.criadoEm-a.criadoEm);
+  const pendentes = tarefasCache.filter(it => !it.feita).sort((a,b) => {
+    const diff = prioridadeOrdem(a.prioridade) - prioridadeOrdem(b.prioridade);
+    if (diff !== 0) return diff;
+    return b.criadoEm - a.criadoEm;
+  });
   const concluidas = tarefasCache.filter(it => it.feita).sort((a,b)=>b.criadoEm-a.criadoEm);
 
   document.getElementById('countTarefas').textContent = tarefasCache.length;
@@ -772,6 +899,7 @@ function renderTarefas() {
   if (concluidas.length > 0) {
     const header = document.createElement('button');
     header.className = 'btn-toggle';
+    header.id = 'toggleConcluidas';
     header.textContent = (concluidasAberto ? '▲ ' : '▼ ') + `✅ Concluídas (${concluidas.length})`;
     header.onclick = () => { concluidasAberto = !concluidasAberto; renderTarefas(); };
     wrap.appendChild(header);
@@ -788,20 +916,80 @@ window.addTarefa = async () => {
   const data = document.getElementById('tarefaData').value || null;
   const hora = document.getElementById('tarefaHora').value || null;
   const tipo = document.getElementById('tarefaTipo').value;
+  const prioridade = document.getElementById('tarefaPrioridade').value;
   if (!desc) return;
-  await addDoc(tarefasCol, { desc, data, hora, tipo, feita: false, criadoEm: Date.now() });
+  await addDoc(tarefasCol, { desc, data, hora, tipo, prioridade, feita: false, criadoEm: Date.now() });
   document.getElementById('tarefaDesc').value = '';
   document.getElementById('tarefaData').value = '';
   document.getElementById('tarefaHora').value = '';
 };
 window.toggleTarefa = async (id, feita) => updateDoc(doc(db,'tarefas',id), { feita });
 window.delTarefa = async (id) => { if(confirm('Apagar esta tarefa?')) deleteDoc(doc(db,'tarefas',id)); };
-window.editTarefa = async (id, descAtual, dataAtual, tipoAtual) => {
-  const desc = prompt('Descrição da tarefa:', descAtual); if (desc === null) return;
-  const data = prompt('Data (AAAA-MM-DD, deixe vazio se não tiver):', dataAtual); if (data === null) return;
-  const tipo = prompt('Tipo (geral / rmoadmin / rmoservico):', tipoAtual); if (tipo === null) return;
-  const tipoFinal = ['geral','rmoadmin','rmoservico'].includes(tipo.toLowerCase()) ? tipo.toLowerCase() : 'geral';
-  await updateDoc(doc(db,'tarefas',id), { desc, data: normalizarData(data), tipo: tipoFinal });
+window.editTarefa = (id, descAtual, dataAtual, horaAtual, tipoAtual, prioridadeAtual) => {
+  const dataBR = dataAtual ? dataAtual.split('-').reverse().join('/') : '';
+  const opcoesTipo = [
+    ['geral','Tarefa Geral'], ['rmoadmin','RMO - Assunto/Administrativo'], ['rmoservico','RMO - Serviço Agendado']
+  ].map(([v,l]) => `<option value="${v}" ${v===tipoAtual?'selected':''}>${l}</option>`).join('');
+  const opcoesPrio = [
+    ['alta','🔴 Alta prioridade'], ['media','🟡 Média prioridade'], ['baixa','🟢 Pode esperar']
+  ].map(([v,l]) => `<option value="${v}" ${v===prioridadeAtual?'selected':''}>${l}</option>`).join('');
+  abrirModalEditar('Editar Tarefa', `
+    <label>Descrição</label>
+    <input id="edDesc" value="${descAtual}">
+    <label>Tipo</label>
+    <select id="edTipo">${opcoesTipo}</select>
+    <label>Prioridade</label>
+    <select id="edPrio">${opcoesPrio}</select>
+    <div class="modal-row">
+      <div style="flex:1"><label>Data (DD/MM/AAAA)</label><input id="edData" value="${dataBR}"></div>
+      <div style="flex:1"><label>Hora</label><input id="edHora" type="time" value="${horaAtual}"></div>
+    </div>
+  `, async () => {
+    const desc = document.getElementById('edDesc').value.trim();
+    const tipo = document.getElementById('edTipo').value;
+    const prioridade = document.getElementById('edPrio').value;
+    const data = normalizarData(document.getElementById('edData').value);
+    const hora = document.getElementById('edHora').value || null;
+    await updateDoc(doc(db,'tarefas',id), { desc, tipo, prioridade, data, hora });
+  });
+};
+
+// ---------- BUSCA GERAL (item 9: encontra dentro de seções fechadas) ----------
+window.buscarTudo = () => {
+  const termo = document.getElementById('buscaTexto').value.trim().toLowerCase();
+  const resultado = document.getElementById('buscaResultado');
+  document.querySelectorAll('.item').forEach(el => el.classList.remove('destaque'));
+  if (!termo) { resultado.textContent = ''; return; }
+
+  // abre seções escondidas que podem conter o resultado
+  if (!concluidasAberto) { concluidasAberto = true; renderTarefas(); }
+  if (!fixasExpandido) { fixasExpandido = true; renderFixas(); }
+  if (!unicosExpandido) { unicosExpandido = true; renderUnicos(); }
+  if (!receitasExpandido) { receitasExpandido = true; renderReceitas(); }
+  if (!historicoReceitasAberto) { historicoReceitasAberto = true; renderReceitas(); }
+
+  setTimeout(() => {
+    let achou = 0;
+    let primeiro = null;
+    document.querySelectorAll('.item[data-busca-texto]').forEach(el => {
+      if (el.dataset.buscaTexto.includes(termo)) {
+        el.classList.add('destaque');
+        achou++;
+        if (!primeiro) primeiro = el;
+      }
+    });
+    if (achou > 0) {
+      resultado.textContent = `✅ ${achou} resultado(s) encontrado(s) e destacado(s) em roxo abaixo.`;
+      if (primeiro) primeiro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      resultado.textContent = '❌ Nada encontrado com esse termo.';
+    }
+  }, 50);
+};
+window.limparBusca = () => {
+  document.getElementById('buscaTexto').value = '';
+  document.getElementById('buscaResultado').textContent = '';
+  document.querySelectorAll('.item').forEach(el => el.classList.remove('destaque'));
 };
 
 // ---------- TOTAIS ----------
