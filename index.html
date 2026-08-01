@@ -191,6 +191,7 @@
   <div class="panels">
     <div class="panel">
       <h2>📌 Contas Fixas Mensais <span class="badge" id="countFixas">0</span></h2>
+      <div class="hint">Marcar/desmarcar como pago afeta só o mês atual — todo mês novo já começa em aberto automaticamente.</div>
       <div class="row">
         <input id="fixaNome" placeholder="Nome (ex: Aluguel)">
         <button class="btn-mic" type="button" onclick="ditar('fixaNome', this)">🎤</button>
@@ -290,7 +291,6 @@ function diasAtras(dataStr, criadoEm) {
   const base = dataStr ? new Date(dataStr + 'T12:00:00') : new Date(criadoEm);
   return (Date.now() - base.getTime()) / (1000*60*60*24);
 }
-// Aceita tanto DD/MM/AAAA quanto AAAA-MM-DD e sempre devolve AAAA-MM-DD
 function normalizarData(str) {
   if (!str) return null;
   str = String(str).trim();
@@ -303,6 +303,16 @@ function normalizarData(str) {
   }
   return str;
 }
+// ---------- CHAVE DO MÊS ATUAL, pra controlar contas fixas mês a mês ----------
+function mesAtualKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function estaPagoFixaNoMes(it, mesKey) {
+  if (it.pagamentos && (mesKey in it.pagamentos)) return !!it.pagamentos[mesKey];
+  // dados antigos que só tinham "pago" (sem separar por mês) contam pro mês atual uma única vez
+  return !!it.pago;
+}
 
 const receitasCol = collection(db, 'receitas');
 const fixasCol = collection(db, 'contasFixas');
@@ -312,6 +322,7 @@ const despesasCol = collection(db, 'despesas');
 
 const CATEGORIAS_RECEITA = ['DoorDash','RMO Carpet & Upholstery','Outro'];
 const CATEGORIAS_DESPESA = ['Supermercado','Combustível','Alimentação','Manutenção do Carro','Outro'];
+const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // ---------- MICROFONE CONTÍNUO ----------
 const recognitions = {};
@@ -389,7 +400,7 @@ window.processarLote = async () => {
         const valor = parseFloat(partes[2]);
         const dia = parseInt(partes[3]) || null;
         if (!nome || isNaN(valor)) throw new Error('dados inválidos');
-        await addDoc(fixasCol, { nome, valor, dia, pago: false, criadoEm: Date.now() });
+        await addDoc(fixasCol, { nome, valor, dia, pagamentos: {}, criadoEm: Date.now() });
       } else if (tipo === 'pagamento unico' || tipo === 'pagamentounico') {
         const nome = partes[1];
         const valor = parseFloat(partes[2]);
@@ -562,7 +573,7 @@ window.editDespesa = async (id, localAtual, valorAtual, catAtual, dataAtual) => 
   await updateDoc(doc(db,'despesas',id), { local, valor: parseFloat(valor), categoria, data: normalizarData(data) });
 };
 
-// ---------- CONTAS FIXAS ----------
+// ---------- CONTAS FIXAS (com controle mês a mês) ----------
 let fixasCache = [];
 let fixasExpandido = false;
 onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
@@ -573,9 +584,10 @@ onSnapshot(query(fixasCol, orderBy('criadoEm')), (snap) => {
 });
 
 function renderFixas() {
+  const mesKey = mesAtualKey();
   const ordenadas = [...fixasCache].sort((a,b) => (a.dia||99) - (b.dia||99));
   let total = 0;
-  fixasCache.forEach(it => { if (!it.pago) total += Number(it.valor||0); });
+  fixasCache.forEach(it => { if (!estaPagoFixaNoMes(it, mesKey)) total += Number(it.valor||0); });
   document.getElementById('totalFixas').textContent = fmt(total);
   document.getElementById('countFixas').textContent = fixasCache.length;
 
@@ -583,7 +595,7 @@ function renderFixas() {
   el.innerHTML = '';
   if (ordenadas.length === 0) { el.innerHTML = '<div class="empty">Nenhum item ainda</div>'; }
   const mostrar = fixasExpandido ? ordenadas : ordenadas.slice(0,5);
-  mostrar.forEach(it => el.appendChild(criarItemFixa(it)));
+  mostrar.forEach(it => el.appendChild(criarItemFixa(it, mesKey)));
   if (ordenadas.length > 5) {
     const btn = document.createElement('button');
     btn.className = 'btn-toggle';
@@ -593,17 +605,20 @@ function renderFixas() {
   }
 }
 
-function criarItemFixa(it) {
+function criarItemFixa(it, mesKey) {
   const div = document.createElement('div');
+  const pago = estaPagoFixaNoMes(it, mesKey);
   const hojeDia = new Date().getDate();
-  const vencida = !it.pago && it.dia && hojeDia > it.dia;
-  div.className = 'item' + (it.pago ? ' paid' : '') + (vencida ? ' vencida' : '');
+  const vencida = !pago && it.dia && hojeDia > it.dia;
+  div.className = 'item' + (pago ? ' paid' : '') + (vencida ? ' vencida' : '');
   const tagVencida = vencida ? '<span class="tag vencida">Vencida</span>' : '';
+  const [ano, mesNum] = mesKey.split('-');
+  const mesLabel = nomesMeses[parseInt(mesNum) - 1];
   div.innerHTML = `
-    <div class="info"><b>${it.nome}${tagVencida}</b><span>${fmt(it.valor)} · vence dia ${it.dia || '-'}</span></div>
+    <div class="info"><b>${it.nome}${tagVencida}</b><span>${fmt(it.valor)} · vence dia ${it.dia || '-'} · ${mesLabel}/${ano}</span></div>
     <div class="actions">
       <button class="btn-edit" onclick="editFixa('${it.id}','${it.nome}',${it.valor},${it.dia||0})">✏️</button>
-      <button class="btn-pay" onclick="togglePagoFixa('${it.id}', ${!it.pago})">${it.pago ? 'Desmarcar' : 'Marcar pago'}</button>
+      <button class="btn-pay" onclick="togglePagoFixa('${it.id}', ${!pago})">${pago ? 'Desmarcar' : 'Marcar pago'}</button>
       <button class="btn-del" onclick="delFixa('${it.id}')">✕</button>
     </div>`;
   return div;
@@ -614,12 +629,15 @@ window.addFixa = async () => {
   const valor = parseFloat(document.getElementById('fixaValor').value);
   const dia = parseInt(document.getElementById('fixaDia').value) || null;
   if (!nome || !valor) return alert('Preencha nome e valor');
-  await addDoc(fixasCol, { nome, valor, dia, pago: false, criadoEm: Date.now() });
+  await addDoc(fixasCol, { nome, valor, dia, pagamentos: {}, criadoEm: Date.now() });
   document.getElementById('fixaNome').value = '';
   document.getElementById('fixaValor').value = '';
   document.getElementById('fixaDia').value = '';
 };
-window.togglePagoFixa = async (id, pago) => updateDoc(doc(db,'contasFixas',id), { pago });
+window.togglePagoFixa = async (id, pago) => {
+  const mesKey = mesAtualKey();
+  await updateDoc(doc(db,'contasFixas',id), { [`pagamentos.${mesKey}`]: pago });
+};
 window.delFixa = async (id) => { if(confirm('Apagar este item?')) deleteDoc(doc(db,'contasFixas',id)); };
 window.editFixa = async (id, nomeAtual, valorAtual, diaAtual) => {
   const nome = prompt('Nome:', nomeAtual); if (nome === null) return;
@@ -788,17 +806,19 @@ window.editTarefa = async (id, descAtual, dataAtual, tipoAtual) => {
 
 // ---------- TOTAIS ----------
 function recalcPago() {
+  const mesKey = mesAtualKey();
   let total = 0;
-  fixasCache.forEach(i => { if (i.pago) total += Number(i.valor||0); });
+  fixasCache.forEach(i => { if (estaPagoFixaNoMes(i, mesKey)) total += Number(i.valor||0); });
   unicosCache.forEach(i => { if (i.pago) total += Number(i.valor||0); });
   document.getElementById('totalPago').textContent = fmt(total);
   recalcSaldo();
 }
 function recalcSaldo() {
+  const mesKey = mesAtualKey();
   let totalReceitas = 0;
   receitasCache.forEach(i => { totalReceitas += Number(i.valor||0) + Number(i.gorjeta||0); });
   let totalPago = 0;
-  fixasCache.forEach(i => { if (i.pago) totalPago += Number(i.valor||0); });
+  fixasCache.forEach(i => { if (estaPagoFixaNoMes(i, mesKey)) totalPago += Number(i.valor||0); });
   unicosCache.forEach(i => { if (i.pago) totalPago += Number(i.valor||0); });
   let totalDespesas = 0;
   despesasCache.forEach(i => { totalDespesas += Number(i.valor||0); });
@@ -882,7 +902,6 @@ window.consultarPeriodo = () => {
 };
 
 // ---------- CALENDÁRIOS ----------
-const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const diasSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const hojeReal = new Date();
 
